@@ -12,9 +12,8 @@ defmodule AchievTrack.Application do
       AchievTrack.Repo,
       {DNSCluster, query: Application.get_env(:achiev_track, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: AchievTrack.PubSub},
-      # Start a worker by calling: AchievTrack.Worker.start_link(arg)
-      # {AchievTrack.Worker, arg},
-      # Start to serve requests, typically the last entry
+      {Finch, name: AchievTrack.Finch},
+      {Oban, Application.fetch_env!(:achiev_track, Oban)},
       AchievTrackWeb.Endpoint
     ]
 

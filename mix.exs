@@ -52,7 +52,9 @@ defmodule AchievTrack.MixProject do
       {:guardian, "~> 2.3"},
       {:bcrypt_elixir, "~> 3.0"},
       {:cors_plug, "~> 3.0"},
-      {:finch, "~> 0.13"}
+      {:finch, "~> 0.13"},
+      {:oban, "~> 2.18"},
+      {:bypass, "~> 2.1", only: :test}
     ]
   end
 

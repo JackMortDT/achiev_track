@@ -43,6 +43,17 @@ config :cors_plug,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   headers: ["Authorization", "Content-Type", "Accept"]
 
+config :achiev_track, Oban,
+  repo: AchievTrack.Repo,
+  queues: [sync: 10],
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 3 * * *", AchievTrack.Sync.DailySchedulerWorker}
+     ]}
+  ]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

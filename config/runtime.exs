@@ -16,6 +16,8 @@ import Config
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
+config :achiev_track, :steam_api_key, System.get_env("STEAM_API_KEY") || ""
+
 if System.get_env("PHX_SERVER") do
   config :achiev_track, AchievTrackWeb.Endpoint, server: true
 end
