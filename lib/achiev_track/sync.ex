@@ -36,7 +36,7 @@ defmodule AchievTrack.Sync do
   end
 
   def record_sync(user_id, synced_at \\ nil) do
-    at = synced_at || (DateTime.utc_now() |> DateTime.truncate(:second))
+    at = if is_nil(synced_at), do: DateTime.utc_now() |> DateTime.truncate(:second), else: synced_at
 
     %RateLimit{}
     |> RateLimit.changeset(%{user_id: user_id, synced_at: at})

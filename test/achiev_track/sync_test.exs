@@ -42,6 +42,8 @@ defmodule AchievTrack.SyncTest do
       assert status.syncs_used == 3
       assert status.syncs_remaining == 0
       assert %DateTime{} = status.next_available_at
+      assert DateTime.compare(status.next_available_at, DateTime.utc_now()) == :gt
+      assert DateTime.diff(status.next_available_at, DateTime.utc_now()) <= 3600
     end
 
     test "does not count records older than 1 hour", %{user: user} do

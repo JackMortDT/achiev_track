@@ -9,6 +9,6 @@ defmodule AchievTrack.Repo.Migrations.CreateSyncRateLimits do
     end
 
     create index(:sync_rate_limits, [:user_id])
-    create index(:sync_rate_limits, [:synced_at])
+    create index(:sync_rate_limits, [:user_id, :synced_at])
   end
 end
