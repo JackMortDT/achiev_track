@@ -1,0 +1,75 @@
+defmodule AchievTrack.Sync.SteamClient do
+  @default_base_url "https://api.steampowered.com"
+
+  def get_owned_games(api_key, steam_id, opts \\ []) do
+    base = Keyword.get(opts, :base_url, @default_base_url)
+    url = "#{base}/IPlayerService/GetOwnedGames/v1/"
+    params = [key: api_key, steamid: steam_id, include_appinfo: 1, format: "json"]
+
+    case request(url, params) do
+      {:ok, %{"response" => response}} ->
+        games =
+          (response["games"] || [])
+          |> Enum.map(fn g ->
+            %{
+              appid: g["appid"],
+              name: g["name"],
+              img_icon_url: g["img_icon_url"],
+              playtime_forever: g["playtime_forever"] || 0
+            }
+          end)
+        {:ok, games}
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
+  def get_player_achievements(api_key, steam_id, app_id, opts \\ []) do
+    base = Keyword.get(opts, :base_url, @default_base_url)
+    url = "#{base}/ISteamUserStats/GetPlayerAchievements/v1/"
+    params = [key: api_key, steamid: steam_id, appid: app_id, l: "en", format: "json"]
+
+    case request(url, params) do
+      {:ok, %{"playerstats" => playerstats}} ->
+        if playerstats["success"] == false do
+          {:ok, []}
+        else
+          achievements =
+            (playerstats["achievements"] || [])
+            |> Enum.map(fn a ->
+              %{
+                apiname: a["apiname"],
+                achieved: a["achieved"],
+                unlocktime: a["unlocktime"],
+                name: a["name"],
+                description: a["description"]
+              }
+            end)
+          {:ok, achievements}
+        end
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
+  defp request(url, params) do
+    query = URI.encode_query(params)
+    full_url = "#{url}?#{query}"
+
+    case Finch.build(:get, full_url) |> Finch.request(AchievTrack.Finch) do
+      {:ok, %Finch.Response{status: 200, body: body}} ->
+        case Jason.decode(body) do
+          {:ok, decoded} -> {:ok, decoded}
+          {:error, _} -> {:error, :invalid_json}
+        end
+
+      {:ok, %Finch.Response{status: status}} ->
+        {:error, {:http_error, status}}
+
+      {:error, reason} ->
+        {:error, {:network_error, reason}}
+    end
+  end
+end
