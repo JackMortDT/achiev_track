@@ -2,6 +2,7 @@ defmodule AchievTrack.AccountsTest do
   use AchievTrack.DataCase
 
   alias AchievTrack.Accounts.User
+  alias AchievTrack.Accounts.PlatformConnection
 
   describe "User.changeset/2" do
     test "valid attrs produce a valid changeset" do
@@ -86,6 +87,36 @@ defmodule AchievTrack.AccountsTest do
     test "returns error with unknown email" do
       assert {:error, :invalid_credentials} =
         AchievTrack.Accounts.authenticate_user("nobody@example.com", "secret123")
+    end
+  end
+
+  describe "PlatformConnection.changeset/2" do
+    test "valid steam connection" do
+      user_id = Ecto.UUID.generate()
+      attrs = %{user_id: user_id, platform: "steam", external_id: "76561198000000000"}
+      changeset = PlatformConnection.changeset(%PlatformConnection{}, attrs)
+      assert changeset.valid?
+    end
+
+    test "valid retroachievements connection" do
+      user_id = Ecto.UUID.generate()
+      attrs = %{user_id: user_id, platform: "retroachievements", external_id: "player_one", api_key: "abc123"}
+      changeset = PlatformConnection.changeset(%PlatformConnection{}, attrs)
+      assert changeset.valid?
+    end
+
+    test "invalid platform name is rejected" do
+      user_id = Ecto.UUID.generate()
+      attrs = %{user_id: user_id, platform: "psn", external_id: "id123"}
+      changeset = PlatformConnection.changeset(%PlatformConnection{}, attrs)
+      refute changeset.valid?
+    end
+
+    test "missing external_id is invalid" do
+      user_id = Ecto.UUID.generate()
+      attrs = %{user_id: user_id, platform: "steam"}
+      changeset = PlatformConnection.changeset(%PlatformConnection{}, attrs)
+      refute changeset.valid?
     end
   end
 end

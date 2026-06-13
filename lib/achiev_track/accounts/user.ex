@@ -12,6 +12,8 @@ defmodule AchievTrack.Accounts.User do
     field :avatar_url, :string
     field :password, :string, virtual: true
 
+    has_many :platform_connections, AchievTrack.Accounts.PlatformConnection
+
     timestamps()
   end
 
