@@ -34,7 +34,7 @@ config :achiev_track, AchievTrack.Repo,
   migration_primary_key: [type: :binary_id],
   migration_foreign_key: [type: :binary_id]
 
-config :achiev_track, AchievTrackWeb.Auth.Guardian,
+config :achiev_track, AchievTrack.Auth.Guardian,
   issuer: "achiev_track",
   secret_key: System.get_env("GUARDIAN_SECRET") || "dev_secret_change_in_prod"
 
