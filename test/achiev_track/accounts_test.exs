@@ -36,4 +36,56 @@ defmodule AchievTrack.AccountsTest do
       assert Ecto.Changeset.get_change(changeset, :password) == nil
     end
   end
+
+  describe "Accounts.register_user/1" do
+    test "creates user with valid attrs and UUID id" do
+      attrs = %{username: "player_one", email: "player@example.com", password: "secret123"}
+      assert {:ok, user} = AchievTrack.Accounts.register_user(attrs)
+      assert user.email == "player@example.com"
+      assert user.username == "player_one"
+      assert user.password_hash != nil
+      assert is_binary(user.id)
+      # UUID format: 8-4-4-4-12 hex chars
+      assert String.match?(user.id, ~r/^[0-9a-f\-]{36}$/)
+    end
+
+    test "returns error with duplicate email" do
+      attrs = %{username: "player_one", email: "dup@example.com", password: "secret123"}
+      {:ok, _} = AchievTrack.Accounts.register_user(attrs)
+      attrs2 = %{username: "player_two", email: "dup@example.com", password: "secret123"}
+      assert {:error, changeset} = AchievTrack.Accounts.register_user(attrs2)
+      assert {"has already been taken", _} = Keyword.get(changeset.errors, :email)
+    end
+
+    test "returns error with invalid attrs" do
+      assert {:error, changeset} = AchievTrack.Accounts.register_user(%{})
+      refute changeset.valid?
+    end
+  end
+
+  describe "Accounts.authenticate_user/2" do
+    setup do
+      {:ok, user} = AchievTrack.Accounts.register_user(%{
+        username: "auth_user",
+        email: "auth@example.com",
+        password: "secret123"
+      })
+      %{user: user}
+    end
+
+    test "returns user with correct credentials", %{user: user} do
+      assert {:ok, returned} = AchievTrack.Accounts.authenticate_user("auth@example.com", "secret123")
+      assert returned.id == user.id
+    end
+
+    test "returns error with wrong password" do
+      assert {:error, :invalid_credentials} =
+        AchievTrack.Accounts.authenticate_user("auth@example.com", "wrongpass")
+    end
+
+    test "returns error with unknown email" do
+      assert {:error, :invalid_credentials} =
+        AchievTrack.Accounts.authenticate_user("nobody@example.com", "secret123")
+    end
+  end
 end
