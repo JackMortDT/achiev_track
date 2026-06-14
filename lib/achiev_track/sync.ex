@@ -42,4 +42,36 @@ defmodule AchievTrack.Sync do
     |> RateLimit.changeset(%{user_id: user_id, synced_at: at})
     |> Repo.insert()
   end
+
+  alias AchievTrack.Accounts.PlatformConnection
+  alias AchievTrack.Sync.{SteamWorker, RetroWorker}
+
+  def trigger_sync(user_id) do
+    status = rate_limit_status(user_id)
+
+    if status.allowed do
+      {:ok, _} = record_sync(user_id)
+      enqueue_jobs(user_id)
+      {:ok, rate_limit_status(user_id)}
+    else
+      {:error, :rate_limited, status}
+    end
+  end
+
+  defp enqueue_jobs(user_id) do
+    platforms =
+      Repo.all(from pc in PlatformConnection,
+        where: pc.user_id == ^user_id,
+        select: pc.platform)
+
+    if "steam" in platforms do
+      {:ok, _} = Oban.insert(SteamWorker.new(%{"user_id" => user_id}))
+    end
+
+    if "retroachievements" in platforms do
+      {:ok, _} = Oban.insert(RetroWorker.new(%{"user_id" => user_id}))
+    end
+
+    :ok
+  end
 end

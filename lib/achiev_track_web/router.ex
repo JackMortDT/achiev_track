@@ -23,5 +23,8 @@ defmodule AchievTrackWeb.Router do
     get "/me", UserController, :show
     post "/me/platforms", UserController, :connect_platform
     delete "/me/platforms/:platform", UserController, :disconnect_platform
+    get "/sync/status", SyncController, :status
+    post "/sync", SyncController, :trigger
+    get "/events", EventsController, :subscribe
   end
 end
