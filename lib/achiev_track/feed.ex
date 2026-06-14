@@ -85,6 +85,79 @@ defmodule AchievTrack.Feed do
     |> Repo.all()
   end
 
-  # friends_leaderboard/1 and compare_with_friend/2 are implemented in Task 3
-  # once AchievTrack.Accounts.Friendship schema is available.
+  def friends_leaderboard(user_id) do
+    friend_ids = get_friend_ids(user_id)
+    all_ids = [user_id | friend_ids]
+
+    Repo.all(
+      from u in AchievTrack.Accounts.User,
+        left_join: ua in UserAchievement, on: ua.user_id == u.id,
+        left_join: a in Achievement, on: a.id == ua.achievement_id,
+        where: u.id in ^all_ids,
+        group_by: [u.id, u.username, u.avatar_url],
+        select: %{
+          user_id: u.id,
+          username: u.username,
+          avatar_url: u.avatar_url,
+          total_points: coalesce(sum(a.points), 0)
+        },
+        order_by: [desc: coalesce(sum(a.points), 0)]
+    )
+    |> Enum.with_index(1)
+    |> Enum.map(fn {entry, rank} -> Map.put(entry, :rank, rank) end)
+  end
+
+  def compare_with_friend(user_id, friend_id) do
+    user_stats = get_user_stats(user_id)
+    friend_stats = get_user_stats(friend_id)
+    friend = Repo.get!(AchievTrack.Accounts.User, friend_id)
+
+    shared_games =
+      Repo.all(
+        from ug1 in UserGame,
+          join: ug2 in UserGame,
+            on: ug1.game_id == ug2.game_id and ug2.user_id == ^friend_id,
+          join: g in Game, on: g.id == ug1.game_id,
+          where: ug1.user_id == ^user_id,
+          select: %{
+            title: g.title,
+            platform: g.platform,
+            user_unlocked: ug1.unlocked_count,
+            friend_unlocked: ug2.unlocked_count,
+            total: g.total_achievements
+          },
+          order_by: [desc: ug1.unlocked_count]
+      )
+
+    %{
+      user: user_stats,
+      friend: %{
+        username: friend.username,
+        total_achievements: friend_stats.total_achievements,
+        total_games: friend_stats.total_games,
+        total_points: friend_stats.total_points
+      },
+      shared_games: shared_games
+    }
+  end
+
+  defp get_friend_ids(user_id) do
+    alias AchievTrack.Accounts.Friendship
+
+    as_requester =
+      Repo.all(
+        from f in Friendship,
+          where: f.requester_id == ^user_id and f.status == "accepted",
+          select: f.addressee_id
+      )
+
+    as_addressee =
+      Repo.all(
+        from f in Friendship,
+          where: f.addressee_id == ^user_id and f.status == "accepted",
+          select: f.requester_id
+      )
+
+    as_requester ++ as_addressee
+  end
 end

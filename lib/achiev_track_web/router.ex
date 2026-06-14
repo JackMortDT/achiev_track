@@ -31,5 +31,11 @@ defmodule AchievTrackWeb.Router do
     get "/profile", ProfileController, :show
     get "/achievements", AchievementsController, :index
     get "/games", GamesController, :index
+
+    get "/friends/leaderboard", FriendsController, :leaderboard
+    get "/friends/pending", FriendsController, :pending
+    get "/friends/:user_id/compare", FriendsController, :compare
+    resources "/friends", FriendsController, only: [:index, :create, :delete]
+    put "/friends/:id/accept", FriendsController, :accept
   end
 end

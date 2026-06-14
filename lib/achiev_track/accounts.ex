@@ -44,4 +44,91 @@ defmodule AchievTrack.Accounts do
   def get_user_with_connections(id) do
     Repo.one(from u in User, where: u.id == ^id, preload: :platform_connections)
   end
+
+  alias AchievTrack.Accounts.Friendship
+
+  def get_user_by_username(username) do
+    Repo.one(from u in User, where: u.username == ^username)
+  end
+
+  def send_friend_request(requester_id, addressee_username) do
+    case get_user_by_username(addressee_username) do
+      nil ->
+        {:error, :user_not_found}
+
+      %User{id: id} when id == requester_id ->
+        {:error, :cannot_friend_self}
+
+      addressee ->
+        result =
+          %Friendship{requester_id: requester_id, addressee_id: addressee.id}
+          |> Friendship.changeset(%{})
+          |> Repo.insert()
+
+        case result do
+          {:ok, friendship} -> {:ok, friendship, addressee}
+          {:error, _} = err -> err
+        end
+    end
+  end
+
+  def accept_friend_request(friendship_id, current_user_id) do
+    case Repo.get(Friendship, friendship_id) do
+      nil ->
+        {:error, :not_found}
+
+      %Friendship{addressee_id: ^current_user_id, status: "pending"} = f ->
+        f |> Friendship.changeset(%{status: "accepted"}) |> Repo.update()
+
+      _ ->
+        {:error, :unauthorized}
+    end
+  end
+
+  def remove_friend(friendship_id, current_user_id) do
+    case Repo.get(Friendship, friendship_id) do
+      nil ->
+        {:error, :not_found}
+
+      %Friendship{requester_id: rid, addressee_id: aid} = f
+          when rid == current_user_id or aid == current_user_id ->
+        Repo.delete(f)
+
+      _ ->
+        {:error, :unauthorized}
+    end
+  end
+
+  def list_friends(user_id) do
+    Repo.all(
+      from f in Friendship,
+        join: u in User,
+          on:
+            (f.requester_id == ^user_id and u.id == f.addressee_id) or
+              (f.addressee_id == ^user_id and u.id == f.requester_id),
+        where: f.status == "accepted",
+        select: %{
+          friendship_id: f.id,
+          user_id: u.id,
+          username: u.username,
+          avatar_url: u.avatar_url,
+          status: f.status
+        }
+    )
+  end
+
+  def list_pending_requests(user_id) do
+    Repo.all(
+      from f in Friendship,
+        join: u in User, on: u.id == f.requester_id,
+        where: f.addressee_id == ^user_id and f.status == "pending",
+        select: %{
+          friendship_id: f.id,
+          user_id: u.id,
+          username: u.username,
+          avatar_url: u.avatar_url,
+          status: f.status
+        }
+    )
+  end
 end
