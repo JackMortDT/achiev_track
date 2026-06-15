@@ -55,4 +55,71 @@ defmodule AchievTrackWeb.GamesControllerTest do
     assert length(games) == 1
     assert hd(games)["title"] == "BeatGame"
   end
+
+  describe "GET /api/games/:platform/:external_id/achievements" do
+    setup %{user: user, authed: authed} do
+      {:ok, game} = Catalog.upsert_game(%{
+        platform: "retroachievements",
+        external_id: "celeste-ra",
+        title: "Celeste",
+        image_url: nil,
+        total_achievements: 2
+      })
+      {:ok, ach1} = Catalog.upsert_achievement(%{game_id: game.id, external_id: "C1", title: "Summit", description: nil, points: 50, image_url: nil})
+      {:ok, ach2} = Catalog.upsert_achievement(%{game_id: game.id, external_id: "C2", title: "Locked", description: nil, points: 10, image_url: nil})
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: game.id, unlocked_count: 1,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+      Catalog.insert_user_achievements([%{user_id: user.id, achievement_id: ach1.id, unlocked_at: now}])
+      %{game: game, ach1: ach1, ach2: ach2}
+    end
+
+    test "returns 401 without token", %{conn: conn} do
+      conn = get(conn, "/api/games/retroachievements/celeste-ra/achievements")
+      assert json_response(conn, 401)
+    end
+
+    test "returns 404 when game does not exist", %{authed: conn} do
+      conn = get(conn, "/api/games/retroachievements/nonexistent/achievements")
+      assert json_response(conn, 404)
+    end
+
+    test "returns 404 when game exists but user has no UserGame", %{user: _user, authed: _authed} do
+      {:ok, other} = Accounts.register_user(%{username: "other_gc", email: "other_gc@example.com", password: "secret123"})
+      {:ok, other_token, _} = Guardian.encode_and_sign(other)
+      other_conn = build_conn() |> put_req_header("authorization", "Bearer #{other_token}")
+      conn = get(other_conn, "/api/games/retroachievements/celeste-ra/achievements")
+      assert json_response(conn, 404)
+    end
+
+    test "returns game info and all achievements", %{authed: conn} do
+      conn = get(conn, "/api/games/retroachievements/celeste-ra/achievements")
+      body = json_response(conn, 200)
+
+      assert body["game"]["title"] == "Celeste"
+      assert body["game"]["platform"] == "retroachievements"
+      assert body["game"]["total_achievements"] == 2
+      assert length(body["items"]) == 2
+    end
+
+    test "marks unlocked and locked achievements correctly", %{authed: conn} do
+      conn = get(conn, "/api/games/retroachievements/celeste-ra/achievements")
+      items = json_response(conn, 200)["items"]
+
+      unlocked = Enum.find(items, &(&1["title"] == "Summit"))
+      locked = Enum.find(items, &(&1["title"] == "Locked"))
+
+      assert unlocked["unlocked"] == true
+      assert unlocked["unlocked_at"] != nil
+      assert locked["unlocked"] == false
+      assert locked["unlocked_at"] == nil
+    end
+
+    test "returns unlocked achievements before locked", %{authed: conn} do
+      conn = get(conn, "/api/games/retroachievements/celeste-ra/achievements")
+      items = json_response(conn, 200)["items"]
+      [first | _] = items
+      assert first["unlocked"] == true
+    end
+  end
 end

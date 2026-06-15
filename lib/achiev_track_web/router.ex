@@ -31,6 +31,7 @@ defmodule AchievTrackWeb.Router do
 
     get "/profile", ProfileController, :show
     get "/achievements", AchievementsController, :index
+    get "/games/:platform/:external_id/achievements", GamesController, :achievements
     get "/games", GamesController, :index
 
     get "/friends/leaderboard", FriendsController, :leaderboard

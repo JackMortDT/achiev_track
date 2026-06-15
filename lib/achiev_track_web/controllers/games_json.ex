@@ -16,6 +16,29 @@ defmodule AchievTrackWeb.GamesJSON do
     end)
   end
 
+  def achievements(%{game: game, items: items}) do
+    %{
+      game: %{
+        title: game.title,
+        platform: game.platform,
+        external_id: game.external_id,
+        image_url: game.image_url,
+        total_achievements: game.total_achievements
+      },
+      items: Enum.map(items, fn a ->
+        %{
+          achievement_id: a.achievement_id,
+          title: a.title,
+          description: a.description,
+          points: a.points,
+          image_url: a.image_url,
+          unlocked: a.unlocked,
+          unlocked_at: format_dt(a.unlocked_at)
+        }
+      end)
+    }
+  end
+
   defp format_dt(nil), do: nil
   defp format_dt(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
 end
