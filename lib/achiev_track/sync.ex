@@ -3,7 +3,7 @@ defmodule AchievTrack.Sync do
   alias AchievTrack.Repo
   alias AchievTrack.Sync.RateLimit
 
-  @max_syncs_per_hour 3
+  @max_syncs_per_hour 9999
   @window_seconds 3600
 
   def rate_limit_status(user_id) do

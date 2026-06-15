@@ -4,9 +4,9 @@ defmodule AchievTrack.Sync.RetroClient do
   def get_user_games(username, api_key, opts \\ []) do
     base = Keyword.get(opts, :base_url, @default_base_url)
     url = "#{base}/API/API_GetUserCompletionProgress.php"
-    params = [z: username, y: api_key, c: 500, o: 0]
+    params = [z: username, y: api_key, u: username, c: 500, o: 0]
 
-    case request(url, params) do
+    case request(url, params, api_key) do
       {:ok, %{"Results" => results}} ->
         games =
           Enum.map(results, fn g ->
@@ -28,9 +28,9 @@ defmodule AchievTrack.Sync.RetroClient do
   def get_game_progress(username, api_key, game_id, opts \\ []) do
     base = Keyword.get(opts, :base_url, @default_base_url)
     url = "#{base}/API/API_GetGameInfoAndUserProgress.php"
-    params = [z: username, y: api_key, g: game_id]
+    params = [z: username, y: api_key, u: username, g: game_id]
 
-    case request(url, params) do
+    case request(url, params, api_key) do
       {:ok, body} ->
         achievements =
           (body["Achievements"] || %{})
@@ -60,11 +60,12 @@ defmodule AchievTrack.Sync.RetroClient do
     end
   end
 
-  defp request(url, params) do
+  defp request(url, params, api_key) do
     query = URI.encode_query(params)
     full_url = "#{url}?#{query}"
+    headers = [{"Authorization", "ApiKey #{api_key}"}]
 
-    case Finch.build(:get, full_url) |> Finch.request(AchievTrack.Finch) do
+    case Finch.build(:get, full_url, headers) |> Finch.request(AchievTrack.Finch) do
       {:ok, %Finch.Response{status: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, decoded} -> {:ok, decoded}

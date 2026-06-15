@@ -10,7 +10,7 @@ defmodule AchievTrack.Accounts.PlatformConnection do
   schema "platform_connections" do
     field :platform, :string
     field :external_id, :string
-    field :api_key, :string
+    field :api_key, AchievTrack.EncryptedString
 
     belongs_to :user, AchievTrack.Accounts.User
 

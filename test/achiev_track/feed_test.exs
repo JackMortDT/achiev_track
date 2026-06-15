@@ -139,4 +139,77 @@ defmodule AchievTrack.FeedTest do
       assert hd(games).is_beaten == false
     end
   end
+
+  describe "Feed.list_game_achievements/3" do
+    setup %{user: user} do
+      {:ok, game} = Catalog.upsert_game(%{
+        platform: "retroachievements",
+        external_id: "999",
+        title: "Celeste",
+        image_url: "https://example.com/celeste.png",
+        total_achievements: 3
+      })
+      {:ok, ach1} = Catalog.upsert_achievement(%{game_id: game.id, external_id: "C1", title: "The Summit", description: "Reach the top", points: 50, image_url: nil})
+      {:ok, ach2} = Catalog.upsert_achievement(%{game_id: game.id, external_id: "C2", title: "Strawberry Jam", description: nil, points: 25, image_url: nil})
+      {:ok, ach3} = Catalog.upsert_achievement(%{game_id: game.id, external_id: "C3", title: "Pico Peak", description: "No death run", points: 75, image_url: nil})
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      earlier = DateTime.add(now, -3600, :second)
+
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: game.id, unlocked_count: 2,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+
+      # ach1 and ach2 unlocked; ach3 locked
+      Catalog.insert_user_achievements([
+        %{user_id: user.id, achievement_id: ach1.id, unlocked_at: now},
+        %{user_id: user.id, achievement_id: ach2.id, unlocked_at: earlier}
+      ])
+
+      %{game: game, ach1: ach1, ach2: ach2, ach3: ach3}
+    end
+
+    test "returns {:error, :not_found} when game does not exist", %{user: user} do
+      assert {:error, :not_found} = Feed.list_game_achievements(user.id, "retroachievements", "nonexistent")
+    end
+
+    test "returns {:error, :not_found} when user has no UserGame for this game", %{game: game} do
+      {:ok, other} = Accounts.register_user(%{username: "other_ach", email: "other_ach@example.com", password: "secret123"})
+      assert {:error, :not_found} = Feed.list_game_achievements(other.id, game.platform, game.external_id)
+    end
+
+    test "returns {:ok, %{game, items}} with all achievements for the game", %{user: user, game: game} do
+      assert {:ok, %{game: returned_game, items: items}} =
+               Feed.list_game_achievements(user.id, game.platform, game.external_id)
+
+      assert returned_game.title == "Celeste"
+      assert length(items) == 3
+    end
+
+    test "marks unlocked achievements correctly", %{user: user, game: game, ach1: ach1, ach3: ach3} do
+      {:ok, %{items: items}} = Feed.list_game_achievements(user.id, game.platform, game.external_id)
+      by_id = Map.new(items, &{&1.achievement_id, &1})
+
+      assert by_id[ach1.id].unlocked == true
+      assert by_id[ach1.id].unlocked_at != nil
+      assert by_id[ach3.id].unlocked == false
+      assert by_id[ach3.id].unlocked_at == nil
+    end
+
+    test "orders unlocked before locked, then by unlocked_at desc, then points desc", %{user: user, game: game, ach1: ach1, ach2: ach2, ach3: ach3} do
+      {:ok, %{items: items}} = Feed.list_game_achievements(user.id, game.platform, game.external_id)
+      ids = Enum.map(items, & &1.achievement_id)
+      # ach1 unlocked most recently → first
+      # ach2 unlocked earlier → second
+      # ach3 locked → last
+      assert ids == [ach1.id, ach2.id, ach3.id]
+    end
+
+    test "returns correct achievement fields", %{user: user, game: game, ach1: ach1} do
+      {:ok, %{items: items}} = Feed.list_game_achievements(user.id, game.platform, game.external_id)
+      item = Enum.find(items, &(&1.achievement_id == ach1.id))
+      assert item.title == "The Summit"
+      assert item.description == "Reach the top"
+      assert item.points == 50
+    end
+  end
 end

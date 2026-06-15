@@ -45,6 +45,7 @@ config :cors_plug,
 
 config :achiev_track, Oban,
   repo: AchievTrack.Repo,
+  peer: Oban.Peers.Global,
   queues: [sync: 10],
   plugins: [
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},

@@ -12,15 +12,13 @@ defmodule AchievTrack.Sync.SteamWorker do
         url -> [base_url: url]
       end
 
-    api_key = Application.get_env(:achiev_track, :steam_api_key, "")
-
     with conn when not is_nil(conn) <- get_steam_connection(user_id),
-         {:ok, games} <- SteamClient.get_owned_games(api_key, conn.external_id, steam_opts) do
+         {:ok, games} <- SteamClient.get_owned_games(conn.api_key, conn.external_id, steam_opts) do
       new_achievement_count =
         games
         |> Enum.filter(&(&1.playtime_forever > 0))
         |> Enum.reduce(0, fn game_data, total_new ->
-          sync_game(user_id, game_data, api_key, conn.external_id, steam_opts) + total_new
+          sync_game(user_id, game_data, conn.api_key, conn.external_id, steam_opts) + total_new
         end)
 
       Notifications.broadcast_new_achievements(user_id, new_achievement_count)
@@ -50,6 +48,9 @@ defmodule AchievTrack.Sync.SteamWorker do
 
     case SteamClient.get_player_achievements(api_key, steam_id, game_data.appid, opts) do
       {:ok, []} ->
+        0
+
+      {:error, _} ->
         0
 
       {:ok, achievements} ->

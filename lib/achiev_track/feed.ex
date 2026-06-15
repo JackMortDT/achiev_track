@@ -25,9 +25,13 @@ defmodule AchievTrack.Feed do
     }
   end
 
+  @per_page 100
+
   def list_user_achievements(user_id, opts \\ []) do
     platform = Keyword.get(opts, :platform)
     sort = Keyword.get(opts, :sort, "date")
+    page = max(Keyword.get(opts, :page, 1), 1)
+    per_page = min(Keyword.get(opts, :per_page, @per_page), 200)
 
     query =
       from ua in UserAchievement,
@@ -48,12 +52,17 @@ defmodule AchievTrack.Feed do
 
     query = if platform, do: where(query, [_ua, _a, g], g.platform == ^platform), else: query
 
-    case sort do
-      "points" -> order_by(query, [_ua, a], desc: a.points)
-      "game" -> order_by(query, [_ua, _a, g], asc: g.title)
-      _ -> order_by(query, [ua], desc: ua.unlocked_at)
-    end
-    |> Repo.all()
+    sorted =
+      case sort do
+        "points" -> order_by(query, [_ua, a], desc: a.points)
+        "game" -> order_by(query, [_ua, a, g], asc: g.title, asc: a.title)
+        _ -> order_by(query, [ua], desc: ua.unlocked_at)
+      end
+
+    total = Repo.aggregate(query, :count)
+    items = sorted |> offset(^((page - 1) * per_page)) |> limit(^per_page) |> Repo.all()
+
+    %{items: items, total: total, page: page, per_page: per_page}
   end
 
   def list_user_games(user_id, status \\ "all") do
@@ -139,6 +148,55 @@ defmodule AchievTrack.Feed do
       },
       shared_games: shared_games
     }
+  end
+
+  def list_game_achievements(user_id, platform, external_id) do
+    game = Repo.one(from g in Game,
+      where: g.platform == ^platform and g.external_id == ^external_id)
+
+    if is_nil(game) do
+      {:error, :not_found}
+    else
+      user_game = Repo.one(from ug in UserGame,
+        where: ug.user_id == ^user_id and ug.game_id == ^game.id)
+
+      if is_nil(user_game) do
+        {:error, :not_found}
+      else
+        items =
+          Repo.all(
+            from a in Achievement,
+              left_join: ua in UserAchievement,
+                on: ua.achievement_id == a.id and ua.user_id == ^user_id,
+              where: a.game_id == ^game.id,
+              order_by: [
+                asc: is_nil(ua.id),
+                desc_nulls_last: ua.unlocked_at,
+                desc: a.points
+              ],
+              select: %{
+                achievement_id: a.id,
+                title: a.title,
+                description: a.description,
+                points: a.points,
+                image_url: a.image_url,
+                unlocked: not is_nil(ua.id),
+                unlocked_at: ua.unlocked_at
+              }
+          )
+
+        {:ok, %{
+          game: %{
+            title: game.title,
+            platform: game.platform,
+            external_id: game.external_id,
+            image_url: game.image_url,
+            total_achievements: game.total_achievements
+          },
+          items: items
+        }}
+      end
+    end
   end
 
   defp get_friend_ids(user_id) do

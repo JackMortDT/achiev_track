@@ -19,6 +19,10 @@ defmodule AchievTrackWeb.AuthController do
     end
   end
 
+  def options(conn, _params) do
+    send_resp(conn, 204, "")
+  end
+
   def login(conn, %{"email" => email, "password" => password}) do
     case Accounts.authenticate_user(email, password) do
       {:ok, user} ->

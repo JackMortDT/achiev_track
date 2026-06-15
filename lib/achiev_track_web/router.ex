@@ -13,6 +13,7 @@ defmodule AchievTrackWeb.Router do
   scope "/api", AchievTrackWeb do
     pipe_through :api
 
+    options "/*path", AuthController, :options
     post "/register", AuthController, :register
     post "/login", AuthController, :login
   end
