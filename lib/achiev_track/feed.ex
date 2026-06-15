@@ -66,11 +66,19 @@ defmodule AchievTrack.Feed do
   end
 
   def list_user_games(user_id, status \\ "all") do
+    last_achieved_subq =
+      from ua in UserAchievement,
+        join: a in Achievement, on: a.id == ua.achievement_id,
+        where: ua.user_id == ^user_id,
+        group_by: a.game_id,
+        select: %{game_id: a.game_id, last_at: max(ua.unlocked_at)}
+
     base =
       from ug in UserGame,
         join: g in Game, on: g.id == ug.game_id,
+        left_join: last in subquery(last_achieved_subq), on: last.game_id == g.id,
         where: ug.user_id == ^user_id,
-        order_by: [desc: ug.unlocked_count],
+        order_by: [desc_nulls_last: last.last_at, desc: ug.unlocked_count],
         select: %{
           user_game_id: ug.id,
           unlocked_count: ug.unlocked_count,
@@ -86,7 +94,6 @@ defmodule AchievTrack.Feed do
 
     case status do
       "mastered" -> where(base, [ug], ug.is_mastered == true)
-      # "beaten" excludes mastered — mastered games belong in their own category
       "beaten" -> where(base, [ug], ug.is_beaten == true and ug.is_mastered == false)
       "in_progress" -> where(base, [ug], ug.is_beaten == false)
       _ -> base

@@ -138,6 +138,58 @@ defmodule AchievTrack.FeedTest do
       assert length(games) == 1
       assert hd(games).is_beaten == false
     end
+
+    test "orders games with most recent achievement first", %{user: user} do
+      # Create a third game with a recent achievement
+      {:ok, g3} = Catalog.upsert_game(%{platform: "retroachievements", external_id: "ra1", title: "RecentGame", total_achievements: 2})
+      {:ok, ach} = Catalog.upsert_achievement(%{game_id: g3.id, external_id: "R1", title: "Fast", points: 10})
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: g3.id, unlocked_count: 1,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+      Catalog.insert_user_achievements([%{user_id: user.id, achievement_id: ach.id, unlocked_at: now}])
+
+      games = Feed.list_user_games(user.id)
+      # RecentGame has a user_achievement, the other two don't → it should be first
+      assert hd(games).title == "RecentGame"
+    end
+
+    test "orders games with earlier achievement after more recent one", %{user: user} do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      earlier = DateTime.add(now, -7200, :second)
+
+      {:ok, ga} = Catalog.upsert_game(%{platform: "steam", external_id: "oa1", title: "OlderActive", total_achievements: 1})
+      {:ok, acha} = Catalog.upsert_achievement(%{game_id: ga.id, external_id: "OA1", title: "Old", points: 5})
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: ga.id, unlocked_count: 1,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+      Catalog.insert_user_achievements([%{user_id: user.id, achievement_id: acha.id, unlocked_at: earlier}])
+
+      {:ok, gr} = Catalog.upsert_game(%{platform: "steam", external_id: "ra2", title: "RecentActive", total_achievements: 1})
+      {:ok, achr} = Catalog.upsert_achievement(%{game_id: gr.id, external_id: "RA2", title: "Recent", points: 5})
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: gr.id, unlocked_count: 1,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+      Catalog.insert_user_achievements([%{user_id: user.id, achievement_id: achr.id, unlocked_at: now}])
+
+      titles = Feed.list_user_games(user.id) |> Enum.map(& &1.title)
+      recent_idx = Enum.find_index(titles, &(&1 == "RecentActive"))
+      older_idx = Enum.find_index(titles, &(&1 == "OlderActive"))
+      assert recent_idx < older_idx
+    end
+
+    test "secondary sort by unlocked_count for games with no achievement activity", %{user: user} do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      {:ok, g_low} = Catalog.upsert_game(%{platform: "steam", external_id: "low1", title: "LowCount", total_achievements: 10})
+      {:ok, g_high} = Catalog.upsert_game(%{platform: "steam", external_id: "high1", title: "HighCount", total_achievements: 10})
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: g_low.id, unlocked_count: 1,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: g_high.id, unlocked_count: 8,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+
+      # Neither game has user_achievements, so secondary sort (unlocked_count) applies
+      titles = Feed.list_user_games(user.id) |> Enum.map(& &1.title)
+      high_idx = Enum.find_index(titles, &(&1 == "HighCount"))
+      low_idx = Enum.find_index(titles, &(&1 == "LowCount"))
+      assert high_idx < low_idx
+    end
   end
 
   describe "Feed.list_game_achievements/3" do
