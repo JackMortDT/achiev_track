@@ -10,6 +10,7 @@ defmodule AchievTrack.Catalog.UserGame do
     field :is_beaten, :boolean, default: false
     field :is_mastered, :boolean, default: false
     field :last_synced_at, :utc_datetime
+    field :playtime_forever, :integer, default: 0
 
     belongs_to :user, AchievTrack.Accounts.User
     belongs_to :game, AchievTrack.Catalog.Game
@@ -19,7 +20,7 @@ defmodule AchievTrack.Catalog.UserGame do
 
   def changeset(user_game, attrs) do
     user_game
-    |> cast(attrs, [:user_id, :game_id, :unlocked_count, :is_beaten, :is_mastered, :last_synced_at])
+    |> cast(attrs, [:user_id, :game_id, :unlocked_count, :is_beaten, :is_mastered, :last_synced_at, :playtime_forever])
     |> validate_required([:user_id, :game_id])
   end
 end
