@@ -36,6 +36,8 @@ defmodule AchievTrackWeb.Router do
     post "/sync", SyncController, :trigger
     get "/events", EventsController, :subscribe
 
+    get "/home", HomeController, :index
+
     get "/profile", ProfileController, :show
     get "/achievements", AchievementsController, :index
     get "/games/:platform/:external_id/achievements", GamesController, :achievements
