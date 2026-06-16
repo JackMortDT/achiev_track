@@ -40,7 +40,7 @@ config :achiev_track, AchievTrack.Auth.Guardian,
 
 config :cors_plug,
   origin: [System.get_env("FRONTEND_URL") || "http://localhost:3000"],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   headers: ["Authorization", "Content-Type", "Accept"]
 
 config :achiev_track, Oban,

@@ -18,7 +18,7 @@ defmodule AchievTrackWeb.AchievementsControllerTest do
 
   test "GET /api/achievements returns empty list for new user", %{authed: conn} do
     conn = get(conn, "/api/achievements")
-    assert [] = json_response(conn, 200)
+    assert %{"items" => []} = json_response(conn, 200)
   end
 
   test "GET /api/achievements returns achievements for user", %{user: user, authed: conn} do
@@ -28,7 +28,7 @@ defmodule AchievTrackWeb.AchievementsControllerTest do
     Catalog.insert_user_achievements([%{user_id: user.id, achievement_id: ach.id, unlocked_at: now}])
 
     conn = get(conn, "/api/achievements")
-    [result] = json_response(conn, 200)
+    %{"items" => [result]} = json_response(conn, 200)
     assert result["title"] == "First"
     assert result["game_title"] == "TF2"
     assert result["platform"] == "steam"
@@ -47,7 +47,7 @@ defmodule AchievTrackWeb.AchievementsControllerTest do
     ])
 
     conn = get(conn, "/api/achievements?platform=steam")
-    results = json_response(conn, 200)
+    %{"items" => results} = json_response(conn, 200)
     assert length(results) == 1
     assert hd(results)["platform"] == "steam"
   end
@@ -63,7 +63,7 @@ defmodule AchievTrackWeb.AchievementsControllerTest do
     ])
 
     conn = get(conn, "/api/achievements?sort=points")
-    [first | _] = json_response(conn, 200)
+    %{"items" => [first | _]} = json_response(conn, 200)
     assert first["title"] == "High Points"
     assert first["points"] == 100
   end

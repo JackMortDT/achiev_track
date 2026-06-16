@@ -3,8 +3,9 @@ defmodule AchievTrack.Sync do
   alias AchievTrack.Repo
   alias AchievTrack.Sync.RateLimit
 
-  @max_syncs_per_hour 9999
   @window_seconds 3600
+
+  defp max_syncs_per_hour, do: Application.get_env(:achiev_track, :max_syncs_per_hour, 10)
 
   def rate_limit_status(user_id) do
     window_start = DateTime.utc_now() |> DateTime.add(-@window_seconds, :second) |> DateTime.truncate(:second)
@@ -15,9 +16,10 @@ defmodule AchievTrack.Sync do
       order_by: [asc: rl.synced_at]
     )
 
+    max = max_syncs_per_hour()
     used = length(recent)
-    remaining = max(@max_syncs_per_hour - used, 0)
-    allowed = used < @max_syncs_per_hour
+    remaining = max(max - used, 0)
+    allowed = used < max
 
     next_available_at =
       if not allowed do

@@ -65,10 +65,11 @@ defmodule AchievTrack.Sync.SteamClient do
         schema =
           Map.new(achievements, fn a ->
             icon_url =
-              if a["icon"] && a["icon"] != "" do
-                "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/#{app_id}/#{a["icon"]}.jpg"
-              else
-                nil
+              case a["icon"] do
+                nil -> nil
+                "" -> nil
+                icon when binary_part(icon, 0, 4) == "http" -> icon
+                icon -> "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/#{app_id}/#{icon}.jpg"
               end
             {a["name"], icon_url}
           end)

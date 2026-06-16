@@ -14,32 +14,34 @@ defmodule AchievTrack.SyncTest do
   end
 
   describe "Sync.rate_limit_status/1" do
-    test "returns allowed with 0 syncs used when no records", %{user: user} do
+    setup do
+      %{limit: Application.get_env(:achiev_track, :max_syncs_per_hour, 10)}
+    end
+
+    test "returns allowed with 0 syncs used when no records", %{user: user, limit: limit} do
       status = Sync.rate_limit_status(user.id)
       assert status.allowed == true
       assert status.syncs_used == 0
-      assert status.syncs_remaining == 3
+      assert status.syncs_remaining == limit
       assert status.next_available_at == nil
     end
 
-    test "returns allowed with 2 syncs used after 2 records", %{user: user} do
+    test "returns allowed with 2 syncs used after 2 records", %{user: user, limit: limit} do
       now = DateTime.utc_now() |> DateTime.truncate(:second)
       Sync.record_sync(user.id, now)
       Sync.record_sync(user.id, now)
       status = Sync.rate_limit_status(user.id)
       assert status.allowed == true
       assert status.syncs_used == 2
-      assert status.syncs_remaining == 1
+      assert status.syncs_remaining == limit - 2
     end
 
-    test "returns not allowed after 3 records within 1 hour", %{user: user} do
+    test "returns not allowed after limit records within 1 hour", %{user: user, limit: limit} do
       now = DateTime.utc_now() |> DateTime.truncate(:second)
-      Sync.record_sync(user.id, now)
-      Sync.record_sync(user.id, now)
-      Sync.record_sync(user.id, now)
+      Enum.each(1..limit, fn _ -> Sync.record_sync(user.id, now) end)
       status = Sync.rate_limit_status(user.id)
       assert status.allowed == false
-      assert status.syncs_used == 3
+      assert status.syncs_used == limit
       assert status.syncs_remaining == 0
       assert %DateTime{} = status.next_available_at
       assert DateTime.compare(status.next_available_at, DateTime.utc_now()) == :gt

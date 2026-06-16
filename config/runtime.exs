@@ -16,7 +16,7 @@ import Config
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
-config :achiev_track, :steam_api_key, System.get_env("STEAM_API_KEY") || ""
+config :achiev_track, steam_api_key: System.get_env("STEAM_API_KEY")
 
 config :achiev_track,
   frontend_url: System.get_env("FRONTEND_URL", "http://localhost:3000"),

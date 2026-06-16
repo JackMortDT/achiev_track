@@ -55,11 +55,11 @@ defmodule AchievTrack.FeedTest do
 
     test "returns empty list for new user" do
       {:ok, other} = Accounts.register_user(%{username: "empty_user", email: "empty@example.com", password: "secret123"})
-      assert [] = Feed.list_user_achievements(other.id)
+      assert %{items: []} = Feed.list_user_achievements(other.id)
     end
 
     test "returns achievements sorted by date desc (default)", %{user: user} do
-      results = Feed.list_user_achievements(user.id)
+      %{items: results} = Feed.list_user_achievements(user.id)
       assert length(results) == 2
       [first, second] = results
       assert first.title == "Second"
@@ -72,16 +72,16 @@ defmodule AchievTrack.FeedTest do
       now = DateTime.utc_now() |> DateTime.truncate(:second)
       Catalog.insert_user_achievements([%{user_id: user.id, achievement_id: ra_ach.id, unlocked_at: now}])
 
-      steam_results = Feed.list_user_achievements(user.id, platform: "steam")
+      %{items: steam_results} = Feed.list_user_achievements(user.id, platform: "steam")
       assert Enum.all?(steam_results, &(&1.platform == "steam"))
       assert length(steam_results) == 2
 
-      ra_results = Feed.list_user_achievements(user.id, platform: "retroachievements")
+      %{items: ra_results} = Feed.list_user_achievements(user.id, platform: "retroachievements")
       assert length(ra_results) == 1
     end
 
     test "sorts by points when sort: points given", %{user: user} do
-      results = Feed.list_user_achievements(user.id, sort: "points")
+      %{items: results} = Feed.list_user_achievements(user.id, sort: "points")
       assert hd(results).points == 50
     end
 
@@ -92,7 +92,7 @@ defmodule AchievTrack.FeedTest do
       now = DateTime.utc_now() |> DateTime.truncate(:second)
       Catalog.insert_user_achievements([%{user_id: user.id, achievement_id: aaa_ach.id, unlocked_at: now}])
 
-      results = Feed.list_user_achievements(user.id, sort: "game")
+      %{items: results} = Feed.list_user_achievements(user.id, sort: "game")
       # "AAA Game" sorts before "TF2" alphabetically
       assert hd(results).game_title == "AAA Game"
     end
