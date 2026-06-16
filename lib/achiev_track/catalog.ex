@@ -28,10 +28,20 @@ defmodule AchievTrack.Catalog do
     %UserGame{}
     |> UserGame.changeset(attrs)
     |> Repo.insert(
-      on_conflict: {:replace, [:unlocked_count, :is_beaten, :is_mastered, :last_synced_at, :updated_at]},
+      on_conflict: {:replace, [:unlocked_count, :is_beaten, :is_mastered, :playtime_forever, :last_synced_at, :updated_at]},
       conflict_target: [:user_id, :game_id],
       returning: true
     )
+  end
+
+  def steam_playtime_map(user_id) do
+    Repo.all(
+      from ug in UserGame,
+      join: g in assoc(ug, :game),
+      where: ug.user_id == ^user_id and g.platform == "steam",
+      select: {g.external_id, ug.playtime_forever}
+    )
+    |> Map.new()
   end
 
   # Inserts rows, skips duplicates. Returns {new_count, inserted_rows}.

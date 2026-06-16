@@ -112,6 +112,61 @@ defmodule AchievTrack.CatalogTest do
     end
   end
 
+  describe "steam_playtime_map/1" do
+    setup do
+      {:ok, user} = Accounts.register_user(%{
+        username: "cat_user",
+        email: "cat_user@example.com",
+        password: "secret123"
+      })
+      %{user: user}
+    end
+
+    test "returns empty map when user has no games", %{user: user} do
+      assert Catalog.steam_playtime_map(user.id) == %{}
+    end
+
+    test "returns map of external_id => playtime_forever for steam games", %{user: user} do
+      {:ok, game} = Catalog.upsert_game(%{
+        platform: "steam",
+        external_id: "440",
+        title: "TF2",
+        total_achievements: 0
+      })
+      Catalog.upsert_user_game(%{
+        user_id: user.id,
+        game_id: game.id,
+        unlocked_count: 0,
+        is_beaten: false,
+        is_mastered: false,
+        playtime_forever: 250,
+        last_synced_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      assert Catalog.steam_playtime_map(user.id) == %{"440" => 250}
+    end
+
+    test "does not include non-steam games", %{user: user} do
+      {:ok, game} = Catalog.upsert_game(%{
+        platform: "retroachievements",
+        external_id: "1234",
+        title: "Sonic",
+        total_achievements: 0
+      })
+      Catalog.upsert_user_game(%{
+        user_id: user.id,
+        game_id: game.id,
+        unlocked_count: 0,
+        is_beaten: false,
+        is_mastered: false,
+        playtime_forever: 100,
+        last_synced_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      assert Catalog.steam_playtime_map(user.id) == %{}
+    end
+  end
+
   describe "Catalog.get_achievement_ids_for_user/1" do
     setup do
       {:ok, game} = Catalog.upsert_game(%{platform: "steam", external_id: "999", title: "Game", total_achievements: 2})
