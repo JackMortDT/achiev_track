@@ -41,6 +41,20 @@ defmodule AchievTrack.Accounts do
     end
   end
 
+  def upsert_steam_connection(user_id, steam_id) do
+    %PlatformConnection{}
+    |> PlatformConnection.changeset(%{
+      "user_id" => user_id,
+      "platform" => "steam",
+      "external_id" => steam_id
+    })
+    |> Repo.insert(
+      on_conflict: {:replace, [:external_id, :updated_at]},
+      conflict_target: [:user_id, :platform],
+      returning: true
+    )
+  end
+
   def get_user_with_connections(id) do
     Repo.one(from u in User, where: u.id == ^id, preload: :platform_connections)
   end

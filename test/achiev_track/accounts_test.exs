@@ -119,4 +119,36 @@ defmodule AchievTrack.AccountsTest do
       refute changeset.valid?
     end
   end
+
+  describe "upsert_steam_connection/2" do
+    setup do
+      {:ok, user} = AchievTrack.Accounts.register_user(%{
+        username: "steam_acc",
+        email: "steamacc@example.com",
+        password: "secret123"
+      })
+      %{user: user}
+    end
+
+    test "creates a new steam platform_connection", %{user: user} do
+      assert {:ok, conn} = AchievTrack.Accounts.upsert_steam_connection(user.id, "76561198000000001")
+      assert conn.platform == "steam"
+      assert conn.external_id == "76561198000000001"
+      assert conn.api_key == nil
+    end
+
+    test "updates external_id if connection already exists", %{user: user} do
+      {:ok, _} = AchievTrack.Accounts.upsert_steam_connection(user.id, "76561198000000001")
+      {:ok, updated} = AchievTrack.Accounts.upsert_steam_connection(user.id, "76561198000000002")
+      assert updated.external_id == "76561198000000002"
+
+      import Ecto.Query
+      count = AchievTrack.Repo.aggregate(
+        from(pc in AchievTrack.Accounts.PlatformConnection,
+          where: pc.user_id == ^user.id and pc.platform == "steam"),
+        :count
+      )
+      assert count == 1
+    end
+  end
 end
