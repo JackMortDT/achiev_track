@@ -12,17 +12,27 @@ defmodule AchievTrack.Sync.SteamWorker do
         url -> [base_url: url]
       end
 
-    with conn when not is_nil(conn) <- get_steam_connection(user_id),
-         {:ok, games} <- SteamClient.get_owned_games(conn.api_key, conn.external_id, steam_opts) do
-      new_achievement_count =
-        games
-        |> Enum.filter(&(&1.playtime_forever > 0))
-        |> Enum.reduce(0, fn game_data, total_new ->
-          sync_game(user_id, game_data, conn.api_key, conn.external_id, steam_opts) + total_new
-        end)
+    with conn when not is_nil(conn) <- get_steam_connection(user_id) do
+      api_key = conn.api_key || Application.get_env(:achiev_track, :steam_api_key)
 
-      Notifications.broadcast_new_achievements(user_id, new_achievement_count)
-      :ok
+      with {:ok, games} <- SteamClient.get_owned_games(api_key, conn.external_id, steam_opts) do
+        new_achievement_count =
+          games
+          |> Enum.filter(&(&1.playtime_forever > 0))
+          |> Task.async_stream(
+            fn game_data -> sync_game(user_id, game_data, api_key, conn.external_id, steam_opts) end,
+            max_concurrency: 5,
+            timeout: 30_000,
+            on_timeout: :kill_task
+          )
+          |> Enum.reduce(0, fn
+            {:ok, count}, total -> total + count
+            _, total -> total
+          end)
+
+        Notifications.broadcast_new_achievements(user_id, new_achievement_count)
+        :ok
+      end
     else
       nil -> :ok
       {:error, reason} -> {:error, reason}
@@ -46,12 +56,15 @@ defmodule AchievTrack.Sync.SteamWorker do
       total_achievements: 0
     })
 
-    case SteamClient.get_player_achievements(api_key, steam_id, game_data.appid, opts) do
-      {:ok, []} ->
-        0
+    schema =
+      case SteamClient.get_game_schema(api_key, game_data.appid, opts) do
+        {:ok, s} -> s
+        _ -> %{}
+      end
 
-      {:error, _} ->
-        0
+    case SteamClient.get_player_achievements(api_key, steam_id, game_data.appid, opts) do
+      {:ok, []} -> 0
+      {:error, _} -> 0
 
       {:ok, achievements} ->
         {:ok, _} = Catalog.upsert_game(%{
@@ -63,7 +76,6 @@ defmodule AchievTrack.Sync.SteamWorker do
 
         now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-        # Upsert ALL achievements into catalog first
         ach_map =
           Map.new(achievements, fn a ->
             {:ok, ach} = Catalog.upsert_achievement(%{
@@ -71,12 +83,12 @@ defmodule AchievTrack.Sync.SteamWorker do
               external_id: a.apiname,
               title: a.name,
               description: a.description,
-              points: 0
+              points: 0,
+              image_url: schema[a.apiname]
             })
             {a.apiname, ach}
           end)
 
-        # Build user_achievement rows only for unlocked achievements
         unlocked = Enum.filter(achievements, &(&1.achieved == 1))
 
         ach_rows =
@@ -92,7 +104,6 @@ defmodule AchievTrack.Sync.SteamWorker do
           end)
 
         upsert_user_game(user_id, game.id, length(unlocked), length(achievements))
-
         {new_count, _} = Catalog.insert_user_achievements(ach_rows)
         new_count
     end
