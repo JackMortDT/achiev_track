@@ -16,9 +16,14 @@ defmodule AchievTrack.Sync.SteamWorker do
       api_key = conn.api_key || Application.get_env(:achiev_track, :steam_api_key)
 
       with {:ok, games} <- SteamClient.get_owned_games(api_key, conn.external_id, steam_opts) do
+        playtime_map = Catalog.steam_playtime_map(user_id)
+
         new_achievement_count =
           games
           |> Enum.filter(&(&1.playtime_forever > 0))
+          |> Enum.filter(fn game ->
+            Map.get(playtime_map, to_string(game.appid), -1) < game.playtime_forever
+          end)
           |> Task.async_stream(
             fn game_data -> sync_game(user_id, game_data, api_key, conn.external_id, steam_opts) end,
             max_concurrency: 5,
@@ -106,13 +111,13 @@ defmodule AchievTrack.Sync.SteamWorker do
             %{user_id: user_id, achievement_id: ach.id, unlocked_at: unlocked_at}
           end)
 
-        upsert_user_game(user_id, game.id, length(unlocked), length(achievements))
+        upsert_user_game(user_id, game.id, length(unlocked), length(achievements), game_data.playtime_forever)
         {new_count, _} = Catalog.insert_user_achievements(ach_rows)
         new_count
     end
   end
 
-  defp upsert_user_game(user_id, game_id, unlocked, total) do
+  defp upsert_user_game(user_id, game_id, unlocked, total, playtime) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
     Catalog.upsert_user_game(%{
       user_id: user_id,
@@ -120,6 +125,7 @@ defmodule AchievTrack.Sync.SteamWorker do
       unlocked_count: unlocked,
       is_beaten: unlocked > 0 and unlocked >= div(total, 2),
       is_mastered: total > 0 and unlocked == total,
+      playtime_forever: playtime,
       last_synced_at: now
     })
   end

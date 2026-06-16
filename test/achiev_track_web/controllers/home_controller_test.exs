@@ -15,7 +15,7 @@ defmodule AchievTrackWeb.HomeControllerTest do
     })
     now = DateTime.utc_now() |> DateTime.truncate(:second)
     Catalog.upsert_user_game(%{
-      user_id: user.id, game_id: game.id, unlocked_count: 1,
+      user_id: user.id, game_id: game.id, playtime_forever: 0, unlocked_count: 1,
       is_beaten: false, is_mastered: false, last_synced_at: now
     })
     {:ok, ach} = Catalog.upsert_achievement(%{

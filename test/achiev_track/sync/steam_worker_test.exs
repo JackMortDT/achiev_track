@@ -117,4 +117,86 @@ defmodule AchievTrack.Sync.SteamWorkerTest do
       "steam_base_url" => "http://localhost:#{bypass.port}"
     })
   end
+
+  test "skips game when playtime_forever has not changed", %{bypass: bypass, user: user, base_url: url} do
+    # Pre-seed: game already synced with playtime 100
+    {:ok, game} = AchievTrack.Catalog.upsert_game(%{
+      platform: "steam", external_id: "440", title: "TF2", total_achievements: 1
+    })
+    old_time = DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
+    AchievTrack.Catalog.upsert_user_game(%{
+      user_id: user.id,
+      game_id: game.id,
+      unlocked_count: 0,
+      is_beaten: false,
+      is_mastered: false,
+      playtime_forever: 100,
+      last_synced_at: old_time
+    })
+
+    # Steam returns same playtime — no new achievements possible
+    Bypass.expect_once(bypass, "GET", "/IPlayerService/GetOwnedGames/v1/", fn conn ->
+      body = Jason.encode!(%{response: %{games: [
+        %{appid: 440, name: "TF2", img_icon_url: "", playtime_forever: 100}
+      ]}})
+      Plug.Conn.resp(conn, 200, body)
+    end)
+
+    assert :ok = perform_job(SteamWorker, %{"user_id" => user.id, "steam_base_url" => url})
+
+    import Ecto.Query
+    ug = AchievTrack.Repo.one(
+      from ug in AchievTrack.Catalog.UserGame,
+      where: ug.user_id == ^user.id and ug.game_id == ^game.id
+    )
+    assert ug.last_synced_at == old_time
+  end
+
+  test "syncs game when playtime_forever has increased", %{bypass: bypass, user: user, base_url: url} do
+    # Pre-seed: game previously synced with playtime 50
+    {:ok, game} = AchievTrack.Catalog.upsert_game(%{
+      platform: "steam", external_id: "440", title: "TF2", total_achievements: 0
+    })
+    old_time = DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
+    AchievTrack.Catalog.upsert_user_game(%{
+      user_id: user.id,
+      game_id: game.id,
+      unlocked_count: 0,
+      is_beaten: false,
+      is_mastered: false,
+      playtime_forever: 50,
+      last_synced_at: old_time
+    })
+
+    # Steam now returns playtime 150 — game must be synced
+    Bypass.expect(bypass, "GET", "/IPlayerService/GetOwnedGames/v1/", fn conn ->
+      body = Jason.encode!(%{response: %{games: [
+        %{appid: 440, name: "TF2", img_icon_url: "", playtime_forever: 150}
+      ]}})
+      Plug.Conn.resp(conn, 200, body)
+    end)
+
+    Bypass.expect(bypass, "GET", "/ISteamUserStats/GetPlayerAchievements/v1/", fn conn ->
+      body = Jason.encode!(%{playerstats: %{
+        success: true,
+        achievements: [%{apiname: "ACH_1", achieved: 1, unlocktime: 1_700_000_000,
+          name: "First Blood", description: "Kill someone."}]
+      }})
+      Plug.Conn.resp(conn, 200, body)
+    end)
+
+    Bypass.expect(bypass, "GET", "/ISteamUserStats/GetSchemaForGame/v2/", fn conn ->
+      Plug.Conn.resp(conn, 200, Jason.encode!(%{game: %{availableGameStats: %{achievements: []}}}))
+    end)
+
+    assert :ok = perform_job(SteamWorker, %{"user_id" => user.id, "steam_base_url" => url})
+
+    import Ecto.Query
+    ug = AchievTrack.Repo.one(
+      from ug in AchievTrack.Catalog.UserGame,
+      where: ug.user_id == ^user.id and ug.game_id == ^game.id
+    )
+    assert ug.last_synced_at != old_time
+    assert ug.playtime_forever == 150
+  end
 end

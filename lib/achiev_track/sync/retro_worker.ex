@@ -72,6 +72,7 @@ defmodule AchievTrack.Sync.RetroWorker do
     Catalog.upsert_user_game(%{
       user_id: user_id,
       game_id: game.id,
+      playtime_forever: 0,
       unlocked_count: summary.num_awarded,
       is_beaten: summary.max_possible > 0 and summary.num_awarded >= div(summary.max_possible, 2),
       is_mastered: summary.max_possible > 0 and summary.num_awarded == summary.max_possible,
