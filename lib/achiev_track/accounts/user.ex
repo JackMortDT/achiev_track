@@ -29,6 +29,13 @@ defmodule AchievTrack.Accounts.User do
     |> hash_password()
   end
 
+  def update_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:username, :avatar_url])
+    |> validate_length(:username, min: 2, max: 30)
+    |> unique_constraint(:username)
+  end
+
   defp hash_password(%Ecto.Changeset{valid?: true, changes: %{password: password}} = changeset) do
     changeset
     |> put_change(:password_hash, Bcrypt.hash_pwd_salt(password))

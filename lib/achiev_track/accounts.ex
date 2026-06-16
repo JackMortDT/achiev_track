@@ -55,6 +55,26 @@ defmodule AchievTrack.Accounts do
     )
   end
 
+  def update_user(user, attrs) do
+    user
+    |> User.update_changeset(attrs)
+    |> Repo.update()
+  end
+
+  def change_password(user, current_password, new_password) do
+    if Bcrypt.verify_pass(current_password, user.password_hash) do
+      user
+      |> User.changeset(%{password: new_password})
+      |> Repo.update()
+    else
+      {:error, :invalid_current_password}
+    end
+  end
+
+  def delete_user(user) do
+    Repo.delete(user)
+  end
+
   def get_user_with_connections(id) do
     Repo.one(from u in User, where: u.id == ^id, preload: :platform_connections)
   end

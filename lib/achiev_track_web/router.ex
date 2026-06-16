@@ -29,6 +29,9 @@ defmodule AchievTrackWeb.Router do
     get "/auth/steam/initiate", SteamAuthController, :initiate
 
     get "/me", UserController, :show
+    patch "/me", UserController, :update
+    patch "/me/password", UserController, :update_password
+    delete "/me", UserController, :delete
     post "/me/platforms", UserController, :connect_platform
     delete "/me/platforms/:platform", UserController, :disconnect_platform
 

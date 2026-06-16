@@ -12,7 +12,7 @@ defmodule AchievTrackWeb.UserControllerTest do
     })
     {:ok, token, _} = Guardian.encode_and_sign(user)
     authed_conn = build_conn() |> put_req_header("authorization", "Bearer #{token}")
-    %{user: user, authed_conn: authed_conn}
+    %{user: user, authed_conn: authed_conn, authed: authed_conn}
   end
 
   describe "GET /api/me" do
@@ -70,6 +70,59 @@ defmodule AchievTrackWeb.UserControllerTest do
     test "returns 404 if platform not connected", %{authed_conn: conn} do
       conn = delete(conn, "/api/me/platforms/steam")
       assert %{"error" => _} = json_response(conn, 404)
+    end
+  end
+
+  describe "PATCH /api/me" do
+    test "updates username", %{authed: authed} do
+      conn = patch(authed, "/api/me", %{username: "newname"})
+      assert %{"username" => "newname"} = json_response(conn, 200)
+    end
+
+    test "updates avatar_url", %{authed: authed} do
+      conn = patch(authed, "/api/me", %{avatar_url: "🎮"})
+      assert %{"avatar_url" => "🎮"} = json_response(conn, 200)
+    end
+
+    test "returns 422 with invalid username", %{authed: authed} do
+      conn = patch(authed, "/api/me", %{username: "x"})
+      assert %{"errors" => _} = json_response(conn, 422)
+    end
+
+    test "returns 401 without token", %{conn: conn} do
+      conn = patch(conn, "/api/me", %{username: "foo"})
+      assert json_response(conn, 401)
+    end
+  end
+
+  describe "PATCH /api/me/password" do
+    test "changes password with correct current password", %{authed: authed} do
+      conn = patch(authed, "/api/me/password", %{
+        current_password: "secret123",
+        new_password: "newpass456"
+      })
+      assert %{"ok" => true} = json_response(conn, 200)
+    end
+
+    test "returns 422 with wrong current password", %{authed: authed} do
+      conn = patch(authed, "/api/me/password", %{
+        current_password: "wrongpass",
+        new_password: "newpass456"
+      })
+      assert %{"error" => _} = json_response(conn, 422)
+    end
+  end
+
+  describe "DELETE /api/me" do
+    test "deletes the user account", %{authed: authed, user: user} do
+      conn = delete(authed, "/api/me")
+      assert response(conn, 204)
+      assert is_nil(AchievTrack.Accounts.get_user(user.id))
+    end
+
+    test "returns 401 without token", %{conn: conn} do
+      conn = delete(conn, "/api/me")
+      assert json_response(conn, 401)
     end
   end
 end
