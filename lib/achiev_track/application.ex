@@ -14,6 +14,7 @@ defmodule AchievTrack.Application do
       {Phoenix.PubSub, name: AchievTrack.PubSub},
       {Finch, name: AchievTrack.Finch},
       {Oban, Application.fetch_env!(:achiev_track, Oban)},
+      AchievTrack.Auth.SteamOpenIDState,
       AchievTrackWeb.Endpoint
     ]
 
