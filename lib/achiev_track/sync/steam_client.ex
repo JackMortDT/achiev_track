@@ -80,6 +80,22 @@ defmodule AchievTrack.Sync.SteamClient do
     end
   end
 
+  def get_store_header_image(app_id) do
+    url = "https://store.steampowered.com/api/appdetails?appids=#{app_id}&filters=basic"
+
+    case Finch.build(:get, url) |> Finch.request(AchievTrack.Finch) do
+      {:ok, %Finch.Response{status: 200, body: body}} ->
+        with {:ok, decoded} <- Jason.decode(body),
+             %{"success" => true, "data" => %{"header_image" => img}} <- decoded[to_string(app_id)] do
+          {:ok, img}
+        else
+          _ -> {:error, :not_found}
+        end
+
+      _ -> {:error, :not_found}
+    end
+  end
+
   defp request(url, params) do
     query = URI.encode_query(params)
     full_url = "#{url}?#{query}"

@@ -48,11 +48,13 @@ defmodule AchievTrack.Sync.SteamWorker do
   end
 
   defp sync_game(user_id, game_data, api_key, steam_id, opts) do
+    image_url = steam_icon_url(game_data.appid)
+
     {:ok, game} = Catalog.upsert_game(%{
       platform: "steam",
       external_id: to_string(game_data.appid),
       title: game_data.name,
-      image_url: steam_icon_url(game_data.appid, game_data.img_icon_url),
+      image_url: image_url,
       total_achievements: 0
     })
 
@@ -71,6 +73,7 @@ defmodule AchievTrack.Sync.SteamWorker do
           platform: "steam",
           external_id: to_string(game_data.appid),
           title: game_data.name,
+          image_url: image_url,
           total_achievements: length(achievements)
         })
 
@@ -121,9 +124,10 @@ defmodule AchievTrack.Sync.SteamWorker do
     })
   end
 
-  defp steam_icon_url(_appid, ""), do: nil
-  defp steam_icon_url(_appid, nil), do: nil
-  defp steam_icon_url(appid, icon_hash) do
-    "https://media.steampowered.com/steamcommunity/public/images/apps/#{appid}/#{icon_hash}.jpg"
+  defp steam_icon_url(appid) do
+    case SteamClient.get_store_header_image(appid) do
+      {:ok, url} -> url
+      _ -> "https://cdn.akamai.steamstatic.com/steam/apps/#{appid}/header.jpg"
+    end
   end
 end
