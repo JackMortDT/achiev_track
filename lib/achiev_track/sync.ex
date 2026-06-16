@@ -58,6 +58,12 @@ defmodule AchievTrack.Sync do
     end
   end
 
+  def enqueue_steam_sync(user_id) do
+    %{"user_id" => user_id}
+    |> AchievTrack.Sync.SteamWorker.new()
+    |> Oban.insert()
+  end
+
   defp enqueue_jobs(user_id) do
     platforms =
       Repo.all(from pc in PlatformConnection,

@@ -10,6 +10,11 @@ defmodule AchievTrackWeb.Router do
     plug AchievTrackWeb.Plugs.AuthPipeline
   end
 
+  scope "/", AchievTrackWeb do
+    pipe_through :api
+    get "/auth/steam/callback", SteamAuthController, :callback
+  end
+
   scope "/api", AchievTrackWeb do
     pipe_through :api
 
@@ -20,6 +25,8 @@ defmodule AchievTrackWeb.Router do
 
   scope "/api", AchievTrackWeb do
     pipe_through [:api, :auth]
+
+    get "/auth/steam/initiate", SteamAuthController, :initiate
 
     get "/me", UserController, :show
     post "/me/platforms", UserController, :connect_platform

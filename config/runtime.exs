@@ -18,6 +18,10 @@ import Config
 # script that automatically sets the env var above.
 config :achiev_track, :steam_api_key, System.get_env("STEAM_API_KEY") || ""
 
+config :achiev_track,
+  frontend_url: System.get_env("FRONTEND_URL", "http://localhost:3000"),
+  backend_url: System.get_env("BACKEND_URL", "http://localhost:4000")
+
 if System.get_env("PHX_SERVER") do
   config :achiev_track, AchievTrackWeb.Endpoint, server: true
 end
