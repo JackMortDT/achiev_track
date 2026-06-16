@@ -192,6 +192,75 @@ defmodule AchievTrack.FeedTest do
     end
   end
 
+  describe "recent_achievements/2" do
+    setup do
+      {:ok, user} = AchievTrack.Accounts.register_user(%{
+        username: "home_u", email: "home@example.com", password: "secret123"
+      })
+      {:ok, game} = AchievTrack.Catalog.upsert_game(%{
+        platform: "steam", external_id: "99", title: "Game", total_achievements: 5
+      })
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      Enum.each(1..4, fn i ->
+        {:ok, ach} = AchievTrack.Catalog.upsert_achievement(%{
+          game_id: game.id, external_id: "A#{i}", title: "Ach#{i}", description: nil, points: 10
+        })
+        AchievTrack.Catalog.insert_user_achievements([%{
+          user_id: user.id, achievement_id: ach.id,
+          unlocked_at: DateTime.add(now, -i, :second)
+        }])
+      end)
+      %{user: user}
+    end
+
+    test "returns up to limit achievements sorted by date desc", %{user: user} do
+      results = AchievTrack.Feed.recent_achievements(user.id, 3)
+      assert length(results) == 3
+      [first | rest] = results
+      assert Enum.all?(rest, fn r -> r.unlocked_at <= first.unlocked_at end)
+    end
+  end
+
+  describe "popular_games/1" do
+    setup do
+      {:ok, g1} = AchievTrack.Catalog.upsert_game(%{
+        platform: "steam", external_id: "pop1", title: "PopGame1", total_achievements: 10
+      })
+      {:ok, g2} = AchievTrack.Catalog.upsert_game(%{
+        platform: "steam", external_id: "pop2", title: "PopGame2", total_achievements: 5
+      })
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      Enum.each(1..3, fn i ->
+        {:ok, u} = AchievTrack.Accounts.register_user(%{
+          username: "popuser#{i}", email: "pop#{i}@example.com", password: "secret123"
+        })
+        AchievTrack.Catalog.upsert_user_game(%{
+          user_id: u.id, game_id: g1.id, unlocked_count: 1,
+          is_beaten: false, is_mastered: false, last_synced_at: now
+        })
+      end)
+      {:ok, u4} = AchievTrack.Accounts.register_user(%{
+        username: "popuser4", email: "pop4@example.com", password: "secret123"
+      })
+      AchievTrack.Catalog.upsert_user_game(%{
+        user_id: u4.id, game_id: g2.id, unlocked_count: 1,
+        is_beaten: false, is_mastered: false, last_synced_at: now
+      })
+      %{g1: g1, g2: g2}
+    end
+
+    test "returns games ordered by player count desc", %{g1: g1} do
+      results = AchievTrack.Feed.popular_games(4)
+      assert hd(results).external_id == g1.external_id
+      assert hd(results).player_count == 3
+    end
+
+    test "respects the limit" do
+      results = AchievTrack.Feed.popular_games(1)
+      assert length(results) == 1
+    end
+  end
+
   describe "Feed.list_game_achievements/3" do
     setup %{user: user} do
       {:ok, game} = Catalog.upsert_game(%{

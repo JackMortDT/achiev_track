@@ -101,6 +101,63 @@ defmodule AchievTrack.Feed do
     |> Repo.all()
   end
 
+  def recent_achievements(user_id, limit) do
+    from(ua in UserAchievement,
+      join: a in Achievement, on: a.id == ua.achievement_id,
+      join: g in Game, on: g.id == a.game_id,
+      where: ua.user_id == ^user_id,
+      order_by: [desc: ua.unlocked_at],
+      limit: ^limit,
+      select: %{
+        unlocked_at: ua.unlocked_at,
+        achievement_id: a.id,
+        title: a.title,
+        description: a.description,
+        points: a.points,
+        image_url: a.image_url,
+        game_title: g.title,
+        platform: g.platform,
+        game_external_id: g.external_id
+      }
+    )
+    |> Repo.all()
+  end
+
+  def popular_games(limit) do
+    from(ug in UserGame,
+      join: g in Game, on: g.id == ug.game_id,
+      group_by: [g.id, g.title, g.platform, g.external_id, g.image_url, g.total_achievements],
+      order_by: [desc: count(ug.user_id)],
+      limit: ^limit,
+      select: %{
+        title: g.title,
+        platform: g.platform,
+        external_id: g.external_id,
+        image_url: g.image_url,
+        total_achievements: g.total_achievements,
+        player_count: count(ug.user_id)
+      }
+    )
+    |> Repo.all()
+  end
+
+  def home_data(user_id) do
+    stats = get_user_stats(user_id)
+    leaderboard = friends_leaderboard(user_id)
+    friend_rank =
+      case Enum.find_index(leaderboard, &(&1.user_id == user_id)) do
+        nil -> nil
+        idx -> idx + 1
+      end
+
+    %{
+      stats: Map.put(stats, :friend_rank, friend_rank),
+      recent_achievements: recent_achievements(user_id, 5),
+      active_games: list_user_games(user_id) |> Enum.take(3),
+      popular_games: popular_games(4)
+    }
+  end
+
   def friends_leaderboard(user_id) do
     friend_ids = get_friend_ids(user_id)
     all_ids = [user_id | friend_ids]
