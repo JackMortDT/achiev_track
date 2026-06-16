@@ -81,4 +81,27 @@ defmodule AchievTrack.Sync.SteamClientTest do
         SteamClient.get_player_achievements("fake_key", "76561198000000000", 999, base_url: url)
     end
   end
+
+  describe "get_game_schema/3" do
+    test "returns map of apiname => image_url", %{bypass: bypass, base_url: url} do
+      Bypass.expect_once(bypass, "GET", "/ISteamUserStats/GetSchemaForGame/v2/", fn conn ->
+        body = Jason.encode!(%{game: %{availableGameStats: %{achievements: [
+          %{name: "ACH_1", icon: "abc123", icongray: "gray123"},
+          %{name: "ACH_2", icon: "def456", icongray: "gray456"}
+        ]}}})
+        Plug.Conn.resp(conn, 200, body)
+      end)
+
+      assert {:ok, schema} = AchievTrack.Sync.SteamClient.get_game_schema("api_key", 440, base_url: url)
+      assert schema["ACH_1"] == "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/440/abc123.jpg"
+      assert schema["ACH_2"] == "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/440/def456.jpg"
+    end
+
+    test "returns empty map when game has no achievements", %{bypass: bypass, base_url: url} do
+      Bypass.expect_once(bypass, "GET", "/ISteamUserStats/GetSchemaForGame/v2/", fn conn ->
+        Plug.Conn.resp(conn, 200, Jason.encode!(%{game: %{}}))
+      end)
+      assert {:ok, %{}} = AchievTrack.Sync.SteamClient.get_game_schema("api_key", 440, base_url: url)
+    end
+  end
 end

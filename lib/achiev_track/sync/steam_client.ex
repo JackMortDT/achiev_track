@@ -54,6 +54,31 @@ defmodule AchievTrack.Sync.SteamClient do
     end
   end
 
+  def get_game_schema(api_key, app_id, opts \\ []) do
+    base = Keyword.get(opts, :base_url, @default_base_url)
+    url = "#{base}/ISteamUserStats/GetSchemaForGame/v2/"
+    params = [key: api_key, appid: app_id, format: "json"]
+
+    case request(url, params) do
+      {:ok, %{"game" => game}} ->
+        achievements = get_in(game, ["availableGameStats", "achievements"]) || []
+        schema =
+          Map.new(achievements, fn a ->
+            icon_url =
+              if a["icon"] && a["icon"] != "" do
+                "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/#{app_id}/#{a["icon"]}.jpg"
+              else
+                nil
+              end
+            {a["name"], icon_url}
+          end)
+        {:ok, schema}
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
   defp request(url, params) do
     query = URI.encode_query(params)
     full_url = "#{url}?#{query}"
