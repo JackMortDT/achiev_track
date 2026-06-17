@@ -11,8 +11,12 @@ defmodule AchievTrack.Accounts.User do
     field :password_hash, :string
     field :avatar_url, :string
     field :password, :string, virtual: true
+    field :favorite_game_id, :binary_id
 
     has_many :platform_connections, AchievTrack.Accounts.PlatformConnection
+    belongs_to :favorite_game, AchievTrack.Catalog.Game,
+      foreign_key: :favorite_game_id,
+      define_field: false
 
     timestamps()
   end
@@ -34,6 +38,12 @@ defmodule AchievTrack.Accounts.User do
     |> cast(attrs, [:username, :avatar_url])
     |> validate_length(:username, min: 2, max: 30)
     |> unique_constraint(:username)
+  end
+
+  def favorite_game_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:favorite_game_id])
+    |> foreign_key_constraint(:favorite_game_id)
   end
 
   defp hash_password(%Ecto.Changeset{valid?: true, changes: %{password: password}} = changeset) do
