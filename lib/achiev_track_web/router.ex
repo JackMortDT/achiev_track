@@ -51,5 +51,9 @@ defmodule AchievTrackWeb.Router do
     get "/friends/:user_id/compare", FriendsController, :compare
     resources "/friends", FriendsController, only: [:index, :create, :delete]
     put "/friends/:id/accept", FriendsController, :accept
+
+    patch "/me/favorite-game", ProfileCustomizationController, :set_favorite_game
+    put "/me/showcase/games", ProfileCustomizationController, :set_game_showcase
+    put "/me/showcase/achievements", ProfileCustomizationController, :set_achievement_showcase
   end
 end

@@ -3,6 +3,7 @@ defmodule AchievTrackWeb.GamesJSON do
     Enum.map(games, fn g ->
       %{
         user_game_id: g.user_game_id,
+        game_id: g.game_id,
         title: g.title,
         platform: g.platform,
         external_id: g.external_id,

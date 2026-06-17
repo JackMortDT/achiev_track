@@ -6,7 +6,8 @@ defmodule AchievTrackWeb.AchievementsJSON do
       per_page: per_page,
       items: Enum.map(items, fn a ->
         %{
-          unlocked_at: a.unlocked_at,
+          user_achievement_id: a.user_achievement_id,
+          unlocked_at: format_dt(a.unlocked_at),
           achievement_id: a.achievement_id,
           title: a.title,
           description: a.description,
@@ -19,4 +20,7 @@ defmodule AchievTrackWeb.AchievementsJSON do
       end)
     }
   end
+
+  defp format_dt(nil), do: nil
+  defp format_dt(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
 end

@@ -39,6 +39,7 @@ defmodule AchievTrack.Feed do
         join: g in Game, on: g.id == a.game_id,
         where: ua.user_id == ^user_id,
         select: %{
+          user_achievement_id: ua.id,
           unlocked_at: ua.unlocked_at,
           achievement_id: a.id,
           title: a.title,
@@ -81,6 +82,7 @@ defmodule AchievTrack.Feed do
         order_by: [desc_nulls_last: last.last_at, desc: ug.unlocked_count],
         select: %{
           user_game_id: ug.id,
+          game_id: g.id,
           unlocked_count: ug.unlocked_count,
           is_beaten: ug.is_beaten,
           is_mastered: ug.is_mastered,
