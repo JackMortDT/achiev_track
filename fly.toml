@@ -1,6 +1,6 @@
 # fly.toml — AchievTrack Phoenix API
 app = "achievtrack-api"
-primary_region = "mad"  # Madrid — cambia según tu preferencia
+primary_region = "lax"
 
 [build]
 
