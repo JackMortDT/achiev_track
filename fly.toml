@@ -1,0 +1,30 @@
+# fly.toml — AchievTrack Phoenix API
+app = "achievtrack-api"
+primary_region = "mad"  # Madrid — cambia según tu preferencia
+
+[build]
+
+[env]
+  PHX_SERVER = "true"
+  PORT = "4000"
+  POOL_SIZE = "10"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 1000
+    soft_limit = 800
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[deploy]
+  release_command = "/app/bin/achiev_track eval \"AchievTrack.Release.migrate()\""
