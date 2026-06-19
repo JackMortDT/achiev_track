@@ -22,6 +22,9 @@ config :achiev_track,
   frontend_url: System.get_env("FRONTEND_URL", "http://localhost:3000"),
   backend_url: System.get_env("BACKEND_URL", "http://localhost:4000")
 
+config :cors_plug,
+  origin: [System.get_env("FRONTEND_URL") || "http://localhost:3000"]
+
 if System.get_env("PHX_SERVER") do
   config :achiev_track, AchievTrackWeb.Endpoint, server: true
 end
@@ -40,7 +43,7 @@ if config_env() == :prod do
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
   config :achiev_track, AchievTrack.Repo,
-    # ssl: true,
+    ssl: true,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
     # For machines with several cores, consider starting multiple pools of `pool_size`

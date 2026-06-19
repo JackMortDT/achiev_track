@@ -39,7 +39,6 @@ config :achiev_track, AchievTrack.Auth.Guardian,
   secret_key: System.get_env("GUARDIAN_SECRET") || "dev_secret_change_in_prod"
 
 config :cors_plug,
-  origin: [System.get_env("FRONTEND_URL") || "http://localhost:3000"],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   headers: ["Authorization", "Content-Type", "Accept"]
 

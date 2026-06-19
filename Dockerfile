@@ -1,11 +1,7 @@
 # Dockerfile — AchievTrack Phoenix API
 # Build stage
-ARG ELIXIR_VERSION=1.19.5
-ARG OTP_VERSION=28
-ARG DEBIAN_VERSION=bookworm-20250317-slim
-
-ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
-ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
+ARG BUILDER_IMAGE="elixir:1.18-slim"
+ARG RUNNER_IMAGE="debian:trixie-slim"
 
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -32,6 +28,7 @@ COPY lib lib
 RUN mix compile
 
 COPY config/runtime.exs config/
+COPY rel rel
 
 RUN mix release
 
@@ -39,7 +36,7 @@ RUN mix release
 FROM ${RUNNER_IMAGE}
 
 RUN apt-get update -y && \
-    apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates && \
+    apt-get install -y libstdc++6 openssl libncurses6 locales ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
