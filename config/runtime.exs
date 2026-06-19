@@ -22,9 +22,6 @@ config :achiev_track,
   frontend_url: System.get_env("FRONTEND_URL", "http://localhost:3000"),
   backend_url: System.get_env("BACKEND_URL", "http://localhost:4000")
 
-config :cors_plug,
-  origin: [System.get_env("FRONTEND_URL") || "http://localhost:3000"]
-
 if System.get_env("PHX_SERVER") do
   config :achiev_track, AchievTrackWeb.Endpoint, server: true
 end
@@ -76,6 +73,16 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0}
     ],
     secret_key_base: secret_key_base
+
+  config :cors_plug,
+    origin: [System.get_env("FRONTEND_URL") || "http://localhost:3000"],
+    credentials: true
+
+  config :achiev_track, :cookie_opts,
+    http_only: true,
+    secure: true,
+    same_site: "None",
+    max_age: 60 * 60 * 24 * 30
 
   # ## SSL Support
   #

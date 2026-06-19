@@ -1,7 +1,6 @@
 defmodule AchievTrackWeb.AuthJSON do
-  def auth(%{user: user, token: token}) do
+  def auth(%{user: user}) do
     %{
-      token: token,
       user: %{
         id: user.id,
         username: user.username,

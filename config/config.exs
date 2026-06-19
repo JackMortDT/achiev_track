@@ -40,7 +40,14 @@ config :achiev_track, AchievTrack.Auth.Guardian,
 
 config :cors_plug,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  headers: ["Authorization", "Content-Type", "Accept"]
+  headers: ["Authorization", "Content-Type", "Accept"],
+  credentials: true
+
+config :achiev_track, :cookie_opts,
+  http_only: true,
+  secure: false,
+  same_site: "Lax",
+  max_age: 60 * 60 * 24 * 30
 
 config :achiev_track, Oban,
   repo: AchievTrack.Repo,

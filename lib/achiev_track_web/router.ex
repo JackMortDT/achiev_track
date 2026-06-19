@@ -21,6 +21,7 @@ defmodule AchievTrackWeb.Router do
     options "/*path", AuthController, :options
     post "/register", AuthController, :register
     post "/login", AuthController, :login
+    delete "/logout", AuthController, :logout
   end
 
   scope "/api", AchievTrackWeb do

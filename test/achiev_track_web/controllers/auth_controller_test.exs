@@ -2,11 +2,16 @@ defmodule AchievTrackWeb.AuthControllerTest do
   use AchievTrackWeb.ConnCase
 
   describe "POST /api/register" do
-    test "returns 201 and token with valid params", %{conn: conn} do
+    test "returns 201 and sets cookie with valid params", %{conn: conn} do
       params = %{username: "new_user", email: "new@example.com", password: "secret123"}
       conn = post(conn, "/api/register", params)
-      assert %{"token" => token, "user" => user} = json_response(conn, 201)
-      assert is_binary(token)
+      assert response(conn, 201)
+      assert get_resp_header(conn, "set-cookie")
+             |> Enum.any?(&String.starts_with?(&1, "auth_token="))
+      body = json_response(conn, 201)
+      assert Map.has_key?(body, "user")
+      refute Map.has_key?(body, "token")
+      user = body["user"]
       assert user["email"] == "new@example.com"
       assert user["username"] == "new_user"
       # id is a UUID string
@@ -37,10 +42,14 @@ defmodule AchievTrackWeb.AuthControllerTest do
       :ok
     end
 
-    test "returns 200 and token with valid credentials", %{conn: conn} do
+    test "returns 200 and sets cookie with valid credentials", %{conn: conn} do
       conn = post(conn, "/api/login", %{email: "existing@example.com", password: "secret123"})
-      assert %{"token" => token, "user" => _} = json_response(conn, 200)
-      assert is_binary(token)
+      assert response(conn, 200)
+      assert get_resp_header(conn, "set-cookie")
+             |> Enum.any?(&String.starts_with?(&1, "auth_token="))
+      body = json_response(conn, 200)
+      assert Map.has_key?(body, "user")
+      refute Map.has_key?(body, "token")
     end
 
     test "returns 401 with wrong password", %{conn: conn} do
@@ -51,6 +60,36 @@ defmodule AchievTrackWeb.AuthControllerTest do
     test "returns 401 with unknown email", %{conn: conn} do
       conn = post(conn, "/api/login", %{email: "nobody@example.com", password: "secret123"})
       assert %{"error" => _} = json_response(conn, 401)
+    end
+  end
+
+  describe "DELETE /api/logout" do
+    test "clears the cookie", %{conn: conn} do
+      conn = delete(conn, ~p"/api/logout")
+      assert response(conn, 204)
+      assert get_resp_header(conn, "set-cookie")
+             |> Enum.any?(&String.contains?(&1, "auth_token=;"))
+    end
+  end
+
+  describe "cookie round-trip authentication" do
+    test "cookie from login grants access to a protected endpoint", %{conn: conn} do
+      # Register and capture the cookie
+      reg_conn = post(conn, ~p"/api/register", %{
+        username: "roundtrip_user",
+        email: "rt@example.com",
+        password: "secret123"
+      })
+      assert response(reg_conn, 201)
+      [set_cookie | _] = get_resp_header(reg_conn, "set-cookie")
+
+      # Use the cookie on a protected endpoint
+      authed_conn =
+        conn
+        |> put_req_header("cookie", set_cookie)
+        |> get(~p"/api/me")
+
+      assert response(authed_conn, 200)
     end
   end
 end
