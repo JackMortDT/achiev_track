@@ -122,4 +122,55 @@ defmodule AchievTrackWeb.GamesControllerTest do
       assert first["unlocked"] == true
     end
   end
+
+  describe "GET /api/games with platform filter" do
+    setup %{user: user} do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      {:ok, gba_game} = Catalog.upsert_game(%{platform: "gba", external_id: "gba1", title: "GBA Game", total_achievements: 3})
+      {:ok, psx_game} = Catalog.upsert_game(%{platform: "psx", external_id: "psx1", title: "PSX Game", total_achievements: 5})
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: gba_game.id, unlocked_count: 1,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: psx_game.id, unlocked_count: 2,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+      %{gba_game: gba_game, psx_game: psx_game}
+    end
+
+    test "filters by platform", %{authed: conn} do
+      conn = get(conn, "/api/games?platform=gba")
+      games = json_response(conn, 200)
+      assert length(games) == 1
+      assert hd(games)["platform"] == "gba"
+    end
+
+    test "returns all games when no platform filter", %{authed: conn} do
+      conn = get(conn, "/api/games")
+      # includes the 2 from main setup + 2 from this setup = 4
+      assert length(json_response(conn, 200)) == 4
+    end
+  end
+
+  describe "GET /api/games/platforms" do
+    setup %{user: user} do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      {:ok, g1} = Catalog.upsert_game(%{platform: "gba", external_id: "p1", title: "GBA G", total_achievements: 1})
+      {:ok, g2} = Catalog.upsert_game(%{platform: "steam", external_id: "p2", title: "Steam G", total_achievements: 1})
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: g1.id, unlocked_count: 0,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+      Catalog.upsert_user_game(%{user_id: user.id, game_id: g2.id, unlocked_count: 0,
+        is_beaten: false, is_mastered: false, last_synced_at: now})
+      :ok
+    end
+
+    test "returns unique platforms the user has games for", %{authed: conn} do
+      conn = get(conn, "/api/games/platforms")
+      platforms = json_response(conn, 200)["platforms"]
+      assert "gba" in platforms
+      assert "steam" in platforms
+    end
+
+    test "returns 401 without token", %{conn: conn} do
+      conn = get(conn, "/api/games/platforms")
+      assert json_response(conn, 401)
+    end
+  end
 end

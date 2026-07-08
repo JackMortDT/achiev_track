@@ -17,6 +17,10 @@ defmodule AchievTrackWeb.GamesJSON do
     end)
   end
 
+  def platforms(%{platforms: platforms}) do
+    %{platforms: platforms}
+  end
+
   def achievements(%{game: game, items: items}) do
     %{
       game: %{

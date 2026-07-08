@@ -6,9 +6,20 @@ defmodule AchievTrackWeb.GamesController do
 
   def index(conn, params) do
     user = Guardian.Plug.current_resource(conn)
-    status = params["status"] || "all"
-    games = Feed.list_user_games(user.id, status)
+    opts =
+      [
+        status: params["status"] || "all",
+        platform: params["platform"]
+      ]
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+    games = Feed.list_user_games(user.id, opts)
     render(conn, :index, games: games)
+  end
+
+  def platforms(conn, _params) do
+    user = Guardian.Plug.current_resource(conn)
+    platforms = Feed.list_user_platforms(user.id)
+    render(conn, :platforms, platforms: platforms)
   end
 
   def achievements(conn, %{"platform" => platform, "external_id" => external_id}) do

@@ -66,7 +66,14 @@ defmodule AchievTrack.Feed do
     %{items: items, total: total, page: page, per_page: per_page}
   end
 
-  def list_user_games(user_id, status \\ "all") do
+  def list_user_games(user_id, status) when is_binary(status) do
+    list_user_games(user_id, status: status)
+  end
+
+  def list_user_games(user_id, opts \\ []) when is_list(opts) do
+    status = Keyword.get(opts, :status, "all")
+    platform = Keyword.get(opts, :platform)
+
     last_achieved_subq =
       from ua in UserAchievement,
         join: a in Achievement, on: a.id == ua.achievement_id,
@@ -94,12 +101,27 @@ defmodule AchievTrack.Feed do
           total_achievements: g.total_achievements
         }
 
-    case status do
-      "mastered" -> where(base, [ug], ug.is_mastered == true)
-      "beaten" -> where(base, [ug], ug.is_beaten == true and ug.is_mastered == false)
-      "in_progress" -> where(base, [ug], ug.is_beaten == false)
-      _ -> base
-    end
+    base
+    |> then(fn q ->
+      case status do
+        "mastered" -> where(q, [ug], ug.is_mastered == true)
+        "beaten" -> where(q, [ug], ug.is_beaten == true and ug.is_mastered == false)
+        "in_progress" -> where(q, [ug], ug.is_beaten == false)
+        _ -> q
+      end
+    end)
+    |> then(fn q -> if platform, do: where(q, [_ug, g], g.platform == ^platform), else: q end)
+    |> Repo.all()
+  end
+
+  def list_user_platforms(user_id) do
+    from(ug in UserGame,
+      join: g in Game, on: g.id == ug.game_id,
+      where: ug.user_id == ^user_id and not is_nil(g.platform),
+      select: g.platform,
+      distinct: true,
+      order_by: g.platform
+    )
     |> Repo.all()
   end
 
