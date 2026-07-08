@@ -49,6 +49,7 @@ defmodule AchievTrack.Sync.RetroClient do
         game = %{
           id: body["ID"],
           title: body["Title"],
+          console_name: body["ConsoleName"],
           image_icon: body["ImageIcon"],
           num_achievements: body["NumAchievements"] || 0,
           achievements: achievements

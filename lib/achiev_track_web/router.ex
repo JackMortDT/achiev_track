@@ -3,7 +3,7 @@ defmodule AchievTrackWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
-    plug CORSPlug
+    plug AchievTrackWeb.Plugs.DynamicCORS
   end
 
   pipeline :auth do

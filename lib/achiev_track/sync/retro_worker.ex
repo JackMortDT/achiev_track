@@ -4,6 +4,46 @@ defmodule AchievTrack.Sync.RetroWorker do
   alias AchievTrack.{Catalog, Notifications, Repo}
   alias AchievTrack.Sync.RetroClient
 
+  @console_map %{
+    "game boy advance" => "gba",
+    "game boy color" => "gbc",
+    "game boy" => "gb",
+    "super nintendo" => "snes",
+    "nintendo 64" => "n64",
+    "nes/famicom" => "nes",
+    "playstation" => "psx",
+    "playstation 2" => "ps2",
+    "mega drive" => "genesis",
+    "genesis" => "genesis",
+    "genesis/mega drive" => "genesis",
+    "master system" => "mastersystem",
+    "game gear" => "gamegear",
+    "arcade" => "arcade",
+    "atari 2600" => "atari2600",
+    "atari 7800" => "atari7800",
+    "neo geo" => "neogeo",
+    "pc engine" => "pcengine",
+    "turbografx-16" => "pcengine",
+    "saturn" => "saturn",
+    "dreamcast" => "dreamcast",
+    "nintendo ds" => "nds",
+    "wonderswan" => "wonderswan",
+    "32x" => "32x",
+    "sega cd" => "segacd"
+  }
+
+  @doc """
+  Normalizes a RetroAchievements console name to a short platform slug.
+  Returns "retroachievements" for nil (unknown/missing console).
+  For unknown consoles, falls back to a slugified lowercase name (spaces removed),
+  which may generate new platform values not yet in the console map.
+  """
+  def normalize_console(nil), do: "retroachievements"
+  def normalize_console(name) do
+    key = String.downcase(name)
+    Map.get(@console_map, key, String.replace(key, " ", ""))
+  end
+
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"user_id" => user_id} = args}) do
     ra_opts =
@@ -39,8 +79,10 @@ defmodule AchievTrack.Sync.RetroWorker do
   end
 
   defp sync_game(user_id, summary, detail) do
+    platform = normalize_console(detail.console_name)
+
     {:ok, game} = Catalog.upsert_game(%{
-      platform: "retroachievements",
+      platform: platform,
       external_id: to_string(detail.id),
       title: detail.title,
       image_url: "https://retroachievements.org#{detail.image_icon}",

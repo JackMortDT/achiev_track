@@ -63,4 +63,52 @@ defmodule AchievTrack.Sync.RetroWorkerTest do
     })
     assert :ok = perform_job(RetroWorker, %{"user_id" => other.id})
   end
+
+  describe "console name normalization" do
+    test "stores normalized console name as platform for GBA games", %{user: user, bypass: bypass} do
+      Bypass.expect(bypass, "GET", "/API/API_GetUserCompletionProgress.php", fn conn ->
+        body = Jason.encode!(%{"Results" => [
+          %{"GameID" => 999, "Title" => "Test GBA Game", "ImageIcon" => "/icon.png",
+            "NumAwarded" => 1, "MaxPossible" => 2}
+        ]})
+        Plug.Conn.send_resp(conn, 200, body)
+      end)
+
+      Bypass.expect(bypass, "GET", "/API/API_GetGameInfoAndUserProgress.php", fn conn ->
+        body = Jason.encode!(%{
+          "ID" => 999, "Title" => "Test GBA Game",
+          "ConsoleName" => "Game Boy Advance",
+          "ImageIcon" => "/icon.png", "NumAchievements" => 2,
+          "Achievements" => %{
+            "1" => %{"ID" => 1, "Title" => "First", "Description" => "Desc",
+                     "Points" => 5, "BadgeName" => "badge1", "DateEarned" => nil}
+          }
+        })
+        Plug.Conn.send_resp(conn, 200, body)
+      end)
+
+      base_url = "http://localhost:#{bypass.port}"
+      AchievTrack.Sync.RetroWorker.perform(%Oban.Job{
+        args: %{"user_id" => user.id, "ra_base_url" => base_url}
+      })
+
+      import Ecto.Query
+      game = AchievTrack.Repo.one!(
+        from g in AchievTrack.Catalog.Game, where: g.external_id == "999"
+      )
+      assert game.platform == "gba"
+    end
+
+    test "stores 'psx' for PlayStation games" do
+      assert AchievTrack.Sync.RetroWorker.normalize_console("PlayStation") == "psx"
+    end
+
+    test "stores 'snes' for Super Nintendo games" do
+      assert AchievTrack.Sync.RetroWorker.normalize_console("Super Nintendo") == "snes"
+    end
+
+    test "falls back to slugified name for unknown consoles" do
+      assert AchievTrack.Sync.RetroWorker.normalize_console("Unknown Console") == "unknownconsole"
+    end
+  end
 end
