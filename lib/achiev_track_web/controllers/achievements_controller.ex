@@ -4,6 +4,12 @@ defmodule AchievTrackWeb.AchievementsController do
   alias AchievTrack.Feed
   alias AchievTrack.Auth.Guardian
 
+  def locked(conn, params) do
+    user = Guardian.Plug.current_resource(conn)
+    items = Feed.list_locked_achievements_with_rarity(user.id, params["platform"])
+    render(conn, :locked, items: items)
+  end
+
   def index(conn, params) do
     user = Guardian.Plug.current_resource(conn)
 

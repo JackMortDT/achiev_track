@@ -12,6 +12,9 @@ defmodule AchievTrack.Accounts.User do
     field :avatar_url, :string
     field :password, :string, virtual: true
     field :favorite_game_id, :binary_id
+    field :email_verified_at, :utc_datetime
+    field :email_verification_token, :string
+    field :email_verification_sent_at, :utc_datetime
 
     has_many :platform_connections, AchievTrack.Accounts.PlatformConnection
     belongs_to :favorite_game, AchievTrack.Catalog.Game,

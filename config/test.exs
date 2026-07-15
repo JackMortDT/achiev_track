@@ -30,6 +30,9 @@ config :phoenix, :plug_init_mode, :runtime
 config :phoenix,
   sort_verified_routes_query_params: true
 
+config :achiev_track, AchievTrack.Mailer,
+  adapter: Swoosh.Adapters.Test
+
 config :achiev_track, Oban, testing: :inline
 
 config :achiev_track, max_syncs_per_hour: 3

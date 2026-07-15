@@ -6,7 +6,8 @@ defmodule AchievTrackWeb.AuthJSON do
         username: user.username,
         email: user.email,
         avatar_url: user.avatar_url,
-        inserted_at: user.inserted_at
+        inserted_at: user.inserted_at,
+        email_verified: not is_nil(user.email_verified_at)
       }
     }
   end

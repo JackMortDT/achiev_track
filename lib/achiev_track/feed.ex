@@ -66,11 +66,13 @@ defmodule AchievTrack.Feed do
     %{items: items, total: total, page: page, per_page: per_page}
   end
 
+  def list_user_games(user_id, opts \\ [])
+
   def list_user_games(user_id, status) when is_binary(status) do
     list_user_games(user_id, status: status)
   end
 
-  def list_user_games(user_id, opts \\ []) when is_list(opts) do
+  def list_user_games(user_id, opts) when is_list(opts) do
     status = Keyword.get(opts, :status, "all")
     platform = Keyword.get(opts, :platform)
 
@@ -178,7 +180,9 @@ defmodule AchievTrack.Feed do
       stats: Map.put(stats, :friend_rank, friend_rank),
       recent_achievements: recent_achievements(user_id, 5),
       active_games: list_user_games(user_id) |> Enum.take(3),
-      popular_games: popular_games(4)
+      popular_games: popular_games(4),
+      friends_activity: friends_recent_achievements(user_id, 10),
+      trending_achievements: trending_achievements(7, 5)
     }
   end
 
@@ -269,7 +273,11 @@ defmodule AchievTrack.Feed do
                 points: a.points,
                 image_url: a.image_url,
                 unlocked: not is_nil(ua.id),
-                unlocked_at: ua.unlocked_at
+                unlocked_at: ua.unlocked_at,
+                rarity_pct: fragment(
+                  "ROUND(100.0 * (SELECT COUNT(*) FROM user_achievements WHERE achievement_id = ?) / NULLIF((SELECT COUNT(*) FROM user_games WHERE game_id = ?), 0), 1)",
+                  a.id, type(^game.id, :binary_id)
+                )
               }
           )
 
@@ -279,12 +287,142 @@ defmodule AchievTrack.Feed do
             platform: game.platform,
             external_id: game.external_id,
             image_url: game.image_url,
-            total_achievements: game.total_achievements
+            total_achievements: game.total_achievements,
+            playtime_forever: user_game.playtime_forever,
+            is_mastered: user_game.is_mastered
           },
           items: items
         }}
       end
     end
+  end
+
+  def friends_recent_achievements(user_id, limit) do
+    friend_ids = get_friend_ids(user_id)
+
+    if friend_ids == [] do
+      []
+    else
+      from(ua in UserAchievement,
+        join: a in Achievement, on: a.id == ua.achievement_id,
+        join: g in Game, on: g.id == a.game_id,
+        join: u in AchievTrack.Accounts.User, on: u.id == ua.user_id,
+        where: ua.user_id in ^friend_ids,
+        order_by: [desc: ua.unlocked_at],
+        limit: ^limit,
+        select: %{
+          user_id: u.id,
+          username: u.username,
+          avatar_url: u.avatar_url,
+          achievement_id: a.id,
+          title: a.title,
+          description: a.description,
+          points: a.points,
+          image_url: a.image_url,
+          game_title: g.title,
+          platform: g.platform,
+          game_external_id: g.external_id,
+          unlocked_at: ua.unlocked_at
+        }
+      )
+      |> Repo.all()
+    end
+  end
+
+  def trending_achievements(days, limit) do
+    since = DateTime.add(DateTime.utc_now(), -days * 86400, :second)
+
+    from(ua in UserAchievement,
+      join: a in Achievement, on: a.id == ua.achievement_id,
+      join: g in Game, on: g.id == a.game_id,
+      where: ua.unlocked_at >= ^since,
+      group_by: [a.id, a.title, a.description, a.points, a.image_url, g.id, g.title, g.platform, g.external_id],
+      order_by: [desc: count(ua.id)],
+      limit: ^limit,
+      select: %{
+        achievement_id: a.id,
+        title: a.title,
+        description: a.description,
+        points: a.points,
+        image_url: a.image_url,
+        game_title: g.title,
+        platform: g.platform,
+        game_external_id: g.external_id,
+        unlock_count: count(ua.id)
+      }
+    )
+    |> Repo.all()
+  end
+
+  def list_locked_achievements_with_rarity(user_id, platform \\ nil) do
+    query =
+      from a in Achievement,
+        join: g in Game, on: g.id == a.game_id,
+        join: ug in UserGame, on: ug.game_id == g.id and ug.user_id == ^user_id,
+        left_join: ua in UserAchievement,
+          on: ua.achievement_id == a.id and ua.user_id == ^user_id,
+        where: is_nil(ua.id),
+        select: %{
+          achievement_id: a.id,
+          title: a.title,
+          description: a.description,
+          points: a.points,
+          image_url: a.image_url,
+          game_title: g.title,
+          platform: g.platform,
+          game_external_id: g.external_id,
+          rarity_pct: fragment(
+            "ROUND(100.0 * (SELECT COUNT(*) FROM user_achievements WHERE achievement_id = ?) / NULLIF((SELECT COUNT(*) FROM user_games WHERE game_id = ?), 0), 1)",
+            a.id, g.id
+          )
+        },
+        order_by: [
+          desc: fragment(
+            "(SELECT COUNT(*) FROM user_achievements WHERE achievement_id = ?) * 1.0 / NULLIF((SELECT COUNT(*) FROM user_games WHERE game_id = ?), 0)",
+            a.id, g.id
+          )
+        ]
+
+    query = if platform, do: where(query, [_a, g], g.platform == ^platform), else: query
+    Repo.all(query)
+  end
+
+  def list_unlocked_achievements_paginated(user_id, opts \\ []) do
+    platform = Keyword.get(opts, :platform)
+    page = max(Keyword.get(opts, :page, 1), 1)
+    per_page = min(Keyword.get(opts, :per_page, 48), 200)
+
+    query =
+      from ua in UserAchievement,
+        join: a in Achievement, on: a.id == ua.achievement_id,
+        join: g in Game, on: g.id == a.game_id,
+        join: ug in UserGame, on: ug.game_id == g.id and ug.user_id == ^user_id,
+        where: ua.user_id == ^user_id,
+        select: %{
+          user_achievement_id: ua.id,
+          achievement_id: a.id,
+          title: a.title,
+          description: a.description,
+          points: a.points,
+          image_url: a.image_url,
+          game_title: g.title,
+          platform: g.platform,
+          game_external_id: g.external_id,
+          unlocked_at: ua.unlocked_at,
+          is_mastery: ug.is_mastered,
+          rarity_pct: fragment(
+            "ROUND(100.0 * (SELECT COUNT(*) FROM user_achievements WHERE achievement_id = ?) / NULLIF((SELECT COUNT(*) FROM user_games WHERE game_id = ?), 0), 1)",
+            a.id, g.id
+          )
+        },
+        order_by: [desc: ua.unlocked_at]
+
+    query = if platform, do: where(query, [_ua, _a, g], g.platform == ^platform), else: query
+
+    total = Repo.aggregate(query, :count)
+    items = query |> offset(^((page - 1) * per_page)) |> limit(^per_page) |> Repo.all()
+
+    %{items: items, total: total, page: page, per_page: per_page}
   end
 
   defp get_friend_ids(user_id) do

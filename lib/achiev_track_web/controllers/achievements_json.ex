@@ -15,7 +15,27 @@ defmodule AchievTrackWeb.AchievementsJSON do
           image_url: a.image_url,
           game_title: a.game_title,
           platform: a.platform,
-          game_external_id: a.game_external_id
+          game_external_id: a.game_external_id,
+          rarity_pct: Map.get(a, :rarity_pct),
+          is_mastery: Map.get(a, :is_mastery, false)
+        }
+      end)
+    }
+  end
+
+  def locked(%{items: items}) do
+    %{
+      items: Enum.map(items, fn a ->
+        %{
+          achievement_id: a.achievement_id,
+          title: a.title,
+          description: a.description,
+          points: a.points,
+          image_url: a.image_url,
+          game_title: a.game_title,
+          platform: a.platform,
+          game_external_id: a.game_external_id,
+          rarity_pct: a.rarity_pct
         }
       end)
     }

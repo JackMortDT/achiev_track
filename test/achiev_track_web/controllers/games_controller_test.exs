@@ -69,7 +69,7 @@ defmodule AchievTrackWeb.GamesControllerTest do
       {:ok, ach2} = Catalog.upsert_achievement(%{game_id: game.id, external_id: "C2", title: "Locked", description: nil, points: 10, image_url: nil})
       now = DateTime.utc_now() |> DateTime.truncate(:second)
       Catalog.upsert_user_game(%{user_id: user.id, game_id: game.id, unlocked_count: 1,
-        is_beaten: false, is_mastered: false, last_synced_at: now})
+        is_beaten: false, is_mastered: false, last_synced_at: now, playtime_forever: 150})
       Catalog.insert_user_achievements([%{user_id: user.id, achievement_id: ach1.id, unlocked_at: now}])
       %{game: game, ach1: ach1, ach2: ach2}
     end
@@ -100,6 +100,29 @@ defmodule AchievTrackWeb.GamesControllerTest do
       assert body["game"]["platform"] == "retroachievements"
       assert body["game"]["total_achievements"] == 2
       assert length(body["items"]) == 2
+    end
+
+    test "game object includes playtime_forever and is_mastered", %{authed: conn} do
+      conn = get(conn, "/api/games/retroachievements/celeste-ra/achievements")
+      game = json_response(conn, 200)["game"]
+
+      assert Map.has_key?(game, "playtime_forever")
+      assert Map.has_key?(game, "is_mastered")
+      assert game["is_mastered"] == false
+      assert game["playtime_forever"] == 150
+    end
+
+    test "items include rarity_pct", %{authed: conn} do
+      conn = get(conn, "/api/games/retroachievements/celeste-ra/achievements")
+      items = json_response(conn, 200)["items"]
+
+      Enum.each(items, fn item ->
+        assert Map.has_key?(item, "rarity_pct")
+      end)
+
+      # Summit está desbloqueado por 1 usuario de 1 que tiene el juego = 100.0
+      summit = Enum.find(items, &(&1["title"] == "Summit"))
+      assert summit["rarity_pct"] == 100.0
     end
 
     test "marks unlocked and locked achievements correctly", %{authed: conn} do

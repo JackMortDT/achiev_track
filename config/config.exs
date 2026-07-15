@@ -61,6 +61,15 @@ config :achiev_track, Oban,
      ]}
   ]
 
+config :achiev_track, AchievTrack.Mailer,
+  adapter: Swoosh.Adapters.SMTP
+
+config :achiev_track,
+  mail_from: "noreply@retroplatform.local",
+  mail_from_name: "RetroPlatform"
+
+config :swoosh, :api_client, false
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

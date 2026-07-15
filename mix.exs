@@ -54,6 +54,8 @@ defmodule AchievTrack.MixProject do
       {:cors_plug, "~> 3.0"},
       {:finch, "~> 0.13"},
       {:oban, "~> 2.18"},
+      {:swoosh, "~> 1.16"},
+      {:gen_smtp, "~> 1.2"},
       {:bypass, "~> 2.1", only: :test}
     ]
   end

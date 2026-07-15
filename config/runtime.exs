@@ -30,6 +30,15 @@ config :achiev_track, AchievTrackWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 if config_env() == :prod do
+  config :achiev_track, AchievTrack.Mailer,
+    adapter: Swoosh.Adapters.SMTP,
+    relay: System.get_env("SMTP_HOST", "localhost"),
+    port: String.to_integer(System.get_env("SMTP_PORT", "587")),
+    username: System.get_env("SMTP_USER"),
+    password: System.get_env("SMTP_PASS"),
+    tls: :always,
+    auth: :always
+
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """

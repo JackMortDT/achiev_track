@@ -28,7 +28,9 @@ defmodule AchievTrackWeb.GamesJSON do
         platform: game.platform,
         external_id: game.external_id,
         image_url: game.image_url,
-        total_achievements: game.total_achievements
+        total_achievements: game.total_achievements,
+        playtime_forever: game.playtime_forever,
+        is_mastered: game.is_mastered
       },
       items: Enum.map(items, fn a ->
         %{
@@ -38,7 +40,8 @@ defmodule AchievTrackWeb.GamesJSON do
           points: a.points,
           image_url: a.image_url,
           unlocked: a.unlocked,
-          unlocked_at: format_dt(a.unlocked_at)
+          unlocked_at: format_dt(a.unlocked_at),
+          rarity_pct: to_float(a.rarity_pct)
         }
       end)
     }
@@ -46,4 +49,8 @@ defmodule AchievTrackWeb.GamesJSON do
 
   defp format_dt(nil), do: nil
   defp format_dt(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+
+  defp to_float(nil), do: nil
+  defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
+  defp to_float(v) when is_number(v), do: v / 1
 end

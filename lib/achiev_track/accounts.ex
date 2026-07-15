@@ -4,9 +4,13 @@ defmodule AchievTrack.Accounts do
   alias AchievTrack.Accounts.User
 
   def register_user(attrs) do
-    %User{}
-    |> User.changeset(attrs)
-    |> Repo.insert()
+    case %User{} |> User.changeset(attrs) |> Repo.insert() do
+      {:ok, user} ->
+        AchievTrack.Accounts.EmailVerification.generate_and_send(user)
+        {:ok, user}
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   def authenticate_user(email, password) do

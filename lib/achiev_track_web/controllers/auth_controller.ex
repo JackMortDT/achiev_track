@@ -2,6 +2,7 @@ defmodule AchievTrackWeb.AuthController do
   use AchievTrackWeb, :controller
 
   alias AchievTrack.Accounts
+  alias AchievTrack.Accounts.EmailVerification
   alias AchievTrack.Auth.Guardian
 
   @cookie_name "auth_token"
@@ -48,5 +49,32 @@ defmodule AchievTrackWeb.AuthController do
     conn
     |> delete_resp_cookie(@cookie_name, opts)
     |> send_resp(204, "")
+  end
+
+  def verify_email(conn, %{"token" => token}) do
+    case EmailVerification.verify(token) do
+      {:ok, _user} ->
+        json(conn, %{verified: true})
+
+      {:error, :invalid_or_expired} ->
+        conn
+        |> put_status(422)
+        |> json(%{error: "Token inválido o expirado"})
+    end
+  end
+
+  def resend_verification(conn, _params) do
+    user = Guardian.Plug.current_resource(conn)
+    user = Accounts.get_user!(user.id)
+
+    case EmailVerification.resend(user) do
+      :ok ->
+        json(conn, %{ok: true})
+
+      {:error, :too_soon} ->
+        conn
+        |> put_status(429)
+        |> json(%{error: "Espera 5 minutos antes de reenviar"})
+    end
   end
 end

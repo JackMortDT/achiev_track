@@ -22,12 +22,21 @@ defmodule AchievTrackWeb.Router do
     post "/register", AuthController, :register
     post "/login", AuthController, :login
     delete "/logout", AuthController, :logout
+    get "/verify-email/:token", AuthController, :verify_email
+  end
+
+  if Mix.env() == :dev do
+    scope "/dev" do
+      pipe_through :api
+      forward "/mailbox", Plug.Swoosh.MailboxPreview
+    end
   end
 
   scope "/api", AchievTrackWeb do
     pipe_through [:api, :auth]
 
     get "/auth/steam/initiate", SteamAuthController, :initiate
+    post "/resend-verification", AuthController, :resend_verification
 
     get "/me", UserController, :show
     patch "/me", UserController, :update
@@ -43,6 +52,7 @@ defmodule AchievTrackWeb.Router do
     get "/home", HomeController, :index
 
     get "/profile", ProfileController, :show
+    get "/achievements/locked", AchievementsController, :locked
     get "/achievements", AchievementsController, :index
     get "/games/platforms", GamesController, :platforms
     get "/games/:platform/:external_id/achievements", GamesController, :achievements

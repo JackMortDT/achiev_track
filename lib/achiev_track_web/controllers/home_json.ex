@@ -4,7 +4,9 @@ defmodule AchievTrackWeb.HomeJSON do
       stats: data.stats,
       recent_achievements: Enum.map(data.recent_achievements, &achievement_data/1),
       active_games: Enum.map(data.active_games, &game_data/1),
-      popular_games: Enum.map(data.popular_games, &popular_game_data/1)
+      popular_games: Enum.map(data.popular_games, &popular_game_data/1),
+      friends_activity: Enum.map(data.friends_activity, &friend_activity_data/1),
+      trending_achievements: Enum.map(data.trending_achievements, &trending_achievement_data/1)
     }
   end
 
@@ -43,6 +45,37 @@ defmodule AchievTrackWeb.HomeJSON do
       image_url: g.image_url,
       total_achievements: g.total_achievements,
       player_count: g.player_count
+    }
+  end
+
+  defp friend_activity_data(a) do
+    %{
+      user_id: a.user_id,
+      username: a.username,
+      avatar_url: a.avatar_url,
+      achievement_id: a.achievement_id,
+      title: a.title,
+      description: a.description,
+      points: a.points,
+      image_url: a.image_url,
+      game_title: a.game_title,
+      platform: a.platform,
+      game_external_id: a.game_external_id,
+      unlocked_at: format_dt(a.unlocked_at)
+    }
+  end
+
+  defp trending_achievement_data(a) do
+    %{
+      achievement_id: a.achievement_id,
+      title: a.title,
+      description: a.description,
+      points: a.points,
+      image_url: a.image_url,
+      game_title: a.game_title,
+      platform: a.platform,
+      game_external_id: a.game_external_id,
+      unlock_count: a.unlock_count
     }
   end
 

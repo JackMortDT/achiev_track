@@ -49,6 +49,9 @@ config :achiev_track, AchievTrackWeb.Endpoint,
 # configured to run both http and https servers on
 # different ports.
 
+config :achiev_track, AchievTrack.Mailer,
+  adapter: Swoosh.Adapters.Local
+
 # Enable dev routes for dashboard and mailbox
 config :achiev_track, dev_routes: true
 

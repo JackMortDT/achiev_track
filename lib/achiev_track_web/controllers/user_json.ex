@@ -6,6 +6,7 @@ defmodule AchievTrackWeb.UserJSON do
       email: user.email,
       avatar_url: user.avatar_url,
       inserted_at: user.inserted_at,
+      email_verified: not is_nil(user.email_verified_at),
       platform_connections: Enum.map(user.platform_connections, &platform_connection_data/1)
     }
   end
