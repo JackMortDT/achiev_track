@@ -13,6 +13,7 @@ defmodule AchievTrackWeb.Router do
   scope "/", AchievTrackWeb do
     pipe_through :api
     get "/auth/steam/callback", SteamAuthController, :callback
+    get "/auth/google/callback", GoogleAuthController, :callback
   end
 
   scope "/api", AchievTrackWeb do
@@ -23,6 +24,8 @@ defmodule AchievTrackWeb.Router do
     post "/login", AuthController, :login
     delete "/logout", AuthController, :logout
     get "/verify-email/:token", AuthController, :verify_email
+    get "/auth/steam/login", SteamAuthController, :login
+    get "/auth/google/login", GoogleAuthController, :login
   end
 
   if Mix.env() == :dev do

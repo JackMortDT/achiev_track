@@ -10,6 +10,7 @@ defmodule AchievTrack.Accounts.User do
     field :email, :string
     field :password_hash, :string
     field :avatar_url, :string
+    field :google_id, :string
     field :password, :string, virtual: true
     field :favorite_game_id, :binary_id
     field :email_verified_at, :utc_datetime
@@ -24,6 +25,7 @@ defmodule AchievTrack.Accounts.User do
     timestamps()
   end
 
+  # Traditional email+password registration
   def changeset(user, attrs) do
     user
     |> cast(attrs, [:username, :email, :password, :avatar_url])
@@ -34,6 +36,18 @@ defmodule AchievTrack.Accounts.User do
     |> unique_constraint(:email)
     |> unique_constraint(:username)
     |> hash_password()
+  end
+
+  # OAuth registration — email and password_hash are optional
+  def oauth_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:username, :email, :avatar_url, :google_id])
+    |> validate_required([:username])
+    |> validate_length(:username, min: 2, max: 30)
+    |> maybe_validate_email()
+    |> unique_constraint(:email)
+    |> unique_constraint(:username)
+    |> unique_constraint(:google_id)
   end
 
   def update_changeset(user, attrs) do
@@ -47,6 +61,13 @@ defmodule AchievTrack.Accounts.User do
     user
     |> cast(attrs, [:favorite_game_id])
     |> foreign_key_constraint(:favorite_game_id)
+  end
+
+  defp maybe_validate_email(changeset) do
+    case get_field(changeset, :email) do
+      nil -> changeset
+      _ -> validate_format(changeset, :email, ~r/^[^\s]+@[^\s]+\.[^\s]+$/, message: "must be a valid email")
+    end
   end
 
   defp hash_password(%Ecto.Changeset{valid?: true, changes: %{password: password}} = changeset) do

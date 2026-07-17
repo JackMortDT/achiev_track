@@ -59,6 +59,73 @@ defmodule AchievTrack.Accounts do
     )
   end
 
+  def find_or_create_by_steam(steam_id) do
+    connection =
+      Repo.one(
+        from pc in PlatformConnection,
+          where: pc.platform == "steam" and pc.external_id == ^steam_id,
+          preload: [:user],
+          limit: 1
+      )
+
+    case connection do
+      %PlatformConnection{user: user} ->
+        {:ok, user}
+
+      nil ->
+        api_key = Application.get_env(:achiev_track, :steam_api_key)
+        {username, avatar_url} =
+          case api_key && AchievTrack.Sync.SteamClient.get_player_summary(api_key, steam_id) do
+            {:ok, %{username: name, avatar_url: avatar}} -> {sanitize_steam_username(name), avatar}
+            _ -> {"steam_#{steam_id}", nil}
+          end
+
+        with {:ok, user} <- %User{} |> User.oauth_changeset(%{username: username, avatar_url: avatar_url}) |> Repo.insert(),
+             {:ok, _} <- upsert_steam_connection(user.id, steam_id) do
+          {:ok, user}
+        end
+    end
+  end
+
+  def find_or_create_by_google(%{google_id: nil}), do: {:error, :missing_google_id}
+
+  def find_or_create_by_google(%{google_id: google_id, email: email, name: _name, avatar_url: avatar_url}) do
+    case Repo.get_by(User, google_id: google_id) do
+      %User{} = user ->
+        {:ok, user}
+
+      nil ->
+        find_or_create_google_by_email(google_id, email, avatar_url)
+    end
+  end
+
+  defp find_or_create_google_by_email(google_id, email, avatar_url) when not is_nil(email) do
+    case Repo.one(from u in User, where: u.email == ^email) do
+      %User{} = user ->
+        user
+        |> Ecto.Changeset.change(google_id: google_id)
+        |> Repo.update()
+
+      nil ->
+        username = "google_#{google_id}"
+        %User{}
+        |> User.oauth_changeset(%{
+          username: username,
+          email: email,
+          avatar_url: avatar_url,
+          google_id: google_id
+        })
+        |> Repo.insert()
+    end
+  end
+
+  defp find_or_create_google_by_email(google_id, _email, avatar_url) do
+    username = "google_#{google_id}"
+    %User{}
+    |> User.oauth_changeset(%{username: username, avatar_url: avatar_url, google_id: google_id})
+    |> Repo.insert()
+  end
+
   def update_user(user, attrs) do
     user
     |> User.update_changeset(attrs)
@@ -66,12 +133,16 @@ defmodule AchievTrack.Accounts do
   end
 
   def change_password(user, current_password, new_password) do
-    if Bcrypt.verify_pass(current_password, user.password_hash) do
-      user
-      |> User.changeset(%{password: new_password})
-      |> Repo.update()
+    if is_nil(user.password_hash) do
+      {:error, :no_password_set}
     else
-      {:error, :invalid_current_password}
+      if Bcrypt.verify_pass(current_password, user.password_hash) do
+        user
+        |> User.changeset(%{password: new_password})
+        |> Repo.update()
+      else
+        {:error, :invalid_current_password}
+      end
     end
   end
 
@@ -168,5 +239,26 @@ defmodule AchievTrack.Accounts do
           status: f.status
         }
     )
+  end
+
+  defp sanitize_steam_username(name) do
+    base =
+      name
+      |> String.downcase()
+      |> String.replace(~r/[^a-z0-9_]/, "_")
+      |> String.slice(0, 28)
+      |> String.trim("_")
+
+    base = if String.length(base) < 2, do: "steam_user", else: base
+
+    if Repo.one(from u in User, where: u.username == ^base) == nil do
+      base
+    else
+      # Append incrementing suffix until unique
+      Enum.find_value(1..99, base, fn n ->
+        candidate = "#{base}_#{n}"
+        if Repo.one(from u in User, where: u.username == ^candidate) == nil, do: candidate
+      end)
+    end
   end
 end

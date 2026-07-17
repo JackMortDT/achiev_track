@@ -15,6 +15,7 @@ defmodule AchievTrack.Application do
       {Finch, name: AchievTrack.Finch},
       {Oban, Application.fetch_env!(:achiev_track, Oban)},
       AchievTrack.Auth.SteamOpenIDState,
+      AchievTrack.Auth.GoogleAuthState,
       AchievTrackWeb.Endpoint
     ]
 

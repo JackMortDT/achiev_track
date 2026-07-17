@@ -29,6 +29,16 @@ defmodule AchievTrackWeb.SteamAuthControllerTest do
     end
   end
 
+  describe "GET /api/auth/steam/login" do
+    test "returns steam_url without requiring auth", %{conn: conn} do
+      conn = get(conn, "/api/auth/steam/login")
+      body = json_response(conn, 200)
+      assert %{"steam_url" => url} = body
+      assert String.contains?(url, "steamcommunity.com")
+      assert String.contains?(url, "state")
+    end
+  end
+
   describe "GET /auth/steam/callback" do
     test "redirects to /configuracion?steam=error with invalid state", %{conn: conn} do
       params = %{
@@ -43,11 +53,29 @@ defmodule AchievTrackWeb.SteamAuthControllerTest do
     end
 
     test "redirects to /configuracion?steam=error when mode is cancel", %{user: user, conn: conn} do
-      SteamOpenIDState.put("valid-state", user.id)
+      SteamOpenIDState.put("valid-state", {:link, user.id})
       conn = get(conn, "/auth/steam/callback", %{
         "state" => "valid-state",
         "openid.mode" => "cancel"
       })
+      assert redirected_to(conn) =~ "/configuracion?steam=error"
+    end
+  end
+
+  describe "GET /auth/steam/callback (login mode)" do
+    test "redirects to /configuracion?steam=error when state is login mode but openid verify fails", %{conn: conn} do
+      state_token = Ecto.UUID.generate()
+      SteamOpenIDState.put(state_token, :login)
+
+      # Without a valid Steam signature, verify will fail → error redirect
+      params = %{
+        "state" => state_token,
+        "openid.mode" => "id_res",
+        "openid.claimed_id" => "https://steamcommunity.com/openid/id/76561198012345678",
+        "openid.signed" => "mode",
+        "openid.sig" => "invalidsig"
+      }
+      conn = get(conn, "/auth/steam/callback", params)
       assert redirected_to(conn) =~ "/configuracion?steam=error"
     end
   end

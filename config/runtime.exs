@@ -19,6 +19,10 @@ import Config
 config :achiev_track, steam_api_key: System.get_env("STEAM_API_KEY")
 
 config :achiev_track,
+  google_client_id: System.get_env("GOOGLE_CLIENT_ID", ""),
+  google_client_secret: System.get_env("GOOGLE_CLIENT_SECRET", "")
+
+config :achiev_track,
   frontend_url: System.get_env("FRONTEND_URL", "http://localhost:3000"),
   backend_url: System.get_env("BACKEND_URL", "http://localhost:4000")
 
@@ -36,8 +40,9 @@ if config_env() == :prod do
     port: String.to_integer(System.get_env("SMTP_PORT", "587")),
     username: System.get_env("SMTP_USER"),
     password: System.get_env("SMTP_PASS"),
-    tls: :always,
-    auth: :always
+    tls: :if_available,
+    auth: :always,
+    ssl: false
 
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -86,6 +91,10 @@ if config_env() == :prod do
   config :cors_plug,
     origin: [System.get_env("FRONTEND_URL") || "http://localhost:3000"],
     credentials: true
+
+  config :achiev_track,
+    mail_from: System.get_env("MAIL_FROM", "onboarding@resend.dev"),
+    mail_from_name: System.get_env("MAIL_FROM_NAME", "RetroPlatform")
 
   config :achiev_track, :cookie_opts,
     http_only: true,

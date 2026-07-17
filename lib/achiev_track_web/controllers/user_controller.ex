@@ -64,6 +64,11 @@ defmodule AchievTrackWeb.UserController do
       {:ok, _} ->
         json(conn, %{ok: true})
 
+      {:error, :no_password_set} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "No password set for this account"})
+
       {:error, :invalid_current_password} ->
         conn
         |> put_status(:unprocessable_entity)

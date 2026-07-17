@@ -96,6 +96,26 @@ defmodule AchievTrack.Sync.SteamClient do
     end
   end
 
+  def get_player_summary(api_key, steam_id, opts \\ []) do
+    base = Keyword.get(opts, :base_url, @default_base_url)
+    url = "#{base}/ISteamUser/GetPlayerSummaries/v2/"
+    params = [key: api_key, steamids: steam_id, format: "json"]
+
+    case request(url, params) do
+      {:ok, %{"response" => %{"players" => [player | _]}}} ->
+        {:ok, %{
+          username: player["personaname"],
+          avatar_url: player["avatarfull"]
+        }}
+
+      {:ok, _} ->
+        {:error, :not_found}
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
   defp request(url, params) do
     query = URI.encode_query(params)
     full_url = "#{url}?#{query}"

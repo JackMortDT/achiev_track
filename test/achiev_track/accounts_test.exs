@@ -151,4 +151,52 @@ defmodule AchievTrack.AccountsTest do
       assert count == 1
     end
   end
+
+  describe "find_or_create_by_steam/1" do
+    test "creates a new user when steam_id is unknown" do
+      assert {:ok, user} = AchievTrack.Accounts.find_or_create_by_steam("76561198000000001")
+      assert user.username == "steam_76561198000000001"
+      assert is_nil(user.email)
+      assert is_nil(user.password_hash)
+
+      conn = AchievTrack.Repo.get_by(AchievTrack.Accounts.PlatformConnection,
+        platform: "steam", external_id: "76561198000000001")
+      assert conn.user_id == user.id
+    end
+
+    test "returns existing user when steam_id is already linked" do
+      {:ok, user1} = AchievTrack.Accounts.find_or_create_by_steam("76561198000000002")
+      {:ok, user2} = AchievTrack.Accounts.find_or_create_by_steam("76561198000000002")
+      assert user1.id == user2.id
+    end
+  end
+
+  describe "find_or_create_by_google/1" do
+    test "creates a new user when google_id is unknown" do
+      info = %{google_id: "g-001", email: "new@gmail.com", name: "Test User", avatar_url: nil}
+      assert {:ok, user} = AchievTrack.Accounts.find_or_create_by_google(info)
+      assert user.google_id == "g-001"
+      assert user.email == "new@gmail.com"
+      assert is_nil(user.password_hash)
+    end
+
+    test "returns existing user when google_id matches" do
+      info = %{google_id: "g-002", email: "dup@gmail.com", name: "Dup User", avatar_url: nil}
+      {:ok, user1} = AchievTrack.Accounts.find_or_create_by_google(info)
+      {:ok, user2} = AchievTrack.Accounts.find_or_create_by_google(info)
+      assert user1.id == user2.id
+    end
+
+    test "links google to existing email account" do
+      {:ok, existing} = AchievTrack.Accounts.register_user(%{
+        username: "emailuser",
+        email: "linked@gmail.com",
+        password: "secret123"
+      })
+      info = %{google_id: "g-003", email: "linked@gmail.com", name: "Email User", avatar_url: nil}
+      {:ok, user} = AchievTrack.Accounts.find_or_create_by_google(info)
+      assert user.id == existing.id
+      assert user.google_id == "g-003"
+    end
+  end
 end
